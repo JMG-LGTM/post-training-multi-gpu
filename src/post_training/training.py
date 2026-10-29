@@ -449,9 +449,11 @@ def _train(config, data_root, device, resume, stopping):
     if config["method"] != "critic":
         from .policy import load_policy
         actor = load_policy(config["model"], device, verified_identity=prepared["model_identity"])
-        actor = wrap(actor, device, unused=True, move_inputs=False)
+        actor = wrap(actor, device, unused=True, move_inputs=False,
+                     gradient_as_bucket_view=config["distributed"]["gradient_as_bucket_view"])
         optimizers["actor"] = OptimizerGroup(actor.parameters(), zero=cfg["zero_optimizer"],
-            lr=cfg["learning_rate"], betas=(.9, .95), eps=1e-8, weight_decay=cfg["weight_decay"])
+            lr=cfg["learning_rate"], betas=(.9, .95), eps=1e-8, weight_decay=cfg["weight_decay"],
+            foreach=cfg["adamw_foreach"])
     if config["method"] != "bc":
         critic = _new_critic(config)
         if config["critic"]["init_checkpoint"]:
@@ -459,7 +461,8 @@ def _train(config, data_root, device, resume, stopping):
                 expected_input_spec=default_input_spec(critic, config["critic"]["image_size"]),
                 expected_normalization=normalization, expected_reward_definition=config["reward"],
                 expected_termination_rule=config["reward"]["termination_rule"])
-        critic = wrap(critic.to(device), device, unused=True)
+        critic = wrap(critic.to(device), device, unused=True,
+                      gradient_as_bucket_view=config["distributed"]["gradient_as_bucket_view"])
         critic_optimizer_class = {"adamw": torch.optim.AdamW, "adam": torch.optim.Adam}[config["critic"]["optimizer"]]
         optimizers["q"] = OptimizerGroup([*unwrap(critic).q1.parameters(), *unwrap(critic).q2.parameters()],
             zero=cfg["zero_optimizer"], optimizer_class=critic_optimizer_class,

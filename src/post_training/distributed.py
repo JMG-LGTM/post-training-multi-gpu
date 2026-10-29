@@ -86,11 +86,12 @@ def unwrap(module):
     return module.module if isinstance(module, DDP) else module
 
 
-def wrap(module, device, *, unused=False, move_inputs=True):
+def wrap(module, device, *, unused=False, move_inputs=True, gradient_as_bucket_view=False):
     if world_size() == 1:
         return module
     return DDP(module, device_ids=[device.index] if device.type == "cuda" and move_inputs else None,
-               broadcast_buffers=False, find_unused_parameters=unused)
+               broadcast_buffers=False, find_unused_parameters=unused,
+               gradient_as_bucket_view=gradient_as_bucket_view)
 
 
 def reduce_metrics(metrics, device):

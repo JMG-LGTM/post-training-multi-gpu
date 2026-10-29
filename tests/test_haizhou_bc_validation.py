@@ -196,16 +196,28 @@ from post_training.config import load_config
 from post_training.pi05_assets import checkpoint_identity, load_normalization, platform_model_settings
 from post_training.policy import Pi05Policy
 from test_training import StochasticFakeModel
+from full_memory_fakes import TinyVisionFakeModel
 torch.set_num_threads(1)
 config = load_config(sys.argv[1])
 identity = checkpoint_identity(config['model']['checkpoint'])
 def fake_loader(model_config, device, *, verified_identity):
     assert identity == verified_identity
-    return Pi05Policy(StochasticFakeModel(), lambda value: {'actions': value['actions']},
+    model = TinyVisionFakeModel() if model_config['vision_gradient_checkpointing'] else StochasticFakeModel()
+    return Pi05Policy(model, lambda value: {'actions': value['actions']},
         identity, platform_model_settings(model_config, identity), load_normalization(model_config['checkpoint']),
-        observation_factory=lambda value: value).to(device)
+        observation_factory=lambda value: value,
+        vision_gradient_checkpointing=model_config['vision_gradient_checkpointing']).to(device)
 policy.load_policy = fake_loader
 calls = []
+gradient_views = []
+original_finite_step = training._finite_step
+def capture_finite_step(optimizer, parameters, clip, device):
+    parameters = list(parameters)
+    if config['distributed']['gradient_as_bucket_view']:
+        gradient_views.append(all(parameter.grad is None or parameter.grad._is_view() for parameter in parameters))
+        assert all(opt.optim.defaults['foreach'] is False for opt in optimizer.optimizers)
+    return original_finite_step(optimizer, parameters, clip, device)
+training._finite_step = capture_finite_step
 original = training.evaluate_actor
 def capture(*args, **kwargs):
     assert int(os.environ['RANK']) == 0
@@ -215,7 +227,9 @@ def capture(*args, **kwargs):
 training.evaluate_actor = capture
 summary = training.train(config, sys.argv[2], resume=sys.argv[3] if len(sys.argv)>3 else None)
 Path(config['output_dir'], 'rank_' + os.environ['RANK'] + '_bc_validation.json').write_text(
-    json.dumps(dict(summary=summary, validation_calls=calls)))
+    json.dumps(dict(summary=summary, validation_calls=calls, gradient_view_checks=gradient_views,
+        memory_options=dict(bucket_view=config['distributed']['gradient_as_bucket_view'],
+            foreach=config['training']['adamw_foreach'], vision_gc=config['model']['vision_gradient_checkpointing']))))
 '''
 
 

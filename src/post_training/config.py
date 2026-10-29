@@ -14,7 +14,8 @@ DEFAULTS = {
     "output_dir": "outputs/run",
     "cache_dir": "cache",
     "model": {"checkpoint": "models/pi05_liberox_torch", "backbone": "frozen",
-              "dtype": "bfloat16", "num_inference_steps": 10},
+              "dtype": "bfloat16", "num_inference_steps": 10,
+              "vision_gradient_checkpointing": False},
     "data": {"action_horizon": 8, "action_dim": 7, "proprio_dim": 8,
              "include_post_success": False, "image_flip_vertical": True,
              "image_flip_horizontal": False, "validation_fraction": 0.2, "seed": 7,
@@ -26,7 +27,8 @@ DEFAULTS = {
                  "checkpoint_interval": 100, "checkpoint_format": "consolidated", "log_interval": 10,
                  "validation_interval": 500, "bc_validation": False,
                  "validation_batch_size": None, "validation_seed": 17007, "tensorboard": True,
-                 "zero_optimizer": True, "sampling": "shuffle", "deterministic": False},
+                 "zero_optimizer": True, "adamw_foreach": None,
+                 "sampling": "shuffle", "deterministic": False},
     "critic": {"image_size": 128, "learning_rate": 3e-4, "value_learning_rate": 3e-4,
                "optimizer": "adamw", "weight_decay": 0.01, "grad_clip": 10.0, "expectile": 0.8, "tau": 0.005,
                "beta": 3.0, "max_weight": 20.0, "random_shift_pad": 4,
@@ -36,7 +38,8 @@ DEFAULTS = {
                "success_consecutive_steps": 5,
                "termination_rule": "success_aware_recording_end_v1"},
     "distributed": {"device": "cuda", "backend": "auto", "timeout_seconds": 1800,
-                    "workers_per_rank": 2, "prefetch_factor": 2, "pin_memory": True},
+                    "workers_per_rank": 2, "prefetch_factor": 2, "pin_memory": True,
+                    "gradient_as_bucket_view": False},
 }
 
 
@@ -69,15 +72,21 @@ def load_config(path, *, method=None):
 def validate_config(c):
     if type(c["schema_version"]) is not int or c["schema_version"] != 1 or c["method"] not in {"bc", "iql", "critic"}:
         raise ValueError("Expected schema_version=1 and method bc|iql|critic")
-    for section, field in (("training", "tensorboard"), ("training", "bc_validation"), ("training", "zero_optimizer"),
-                           ("training", "deterministic"), ("distributed", "pin_memory")):
+    for section, field in (("model", "vision_gradient_checkpointing"),
+                           ("training", "tensorboard"), ("training", "bc_validation"), ("training", "zero_optimizer"),
+                           ("training", "deterministic"), ("distributed", "pin_memory"),
+                           ("distributed", "gradient_as_bucket_view")):
         if type(c[section][field]) is not bool:
             raise ValueError(f"{section}.{field} must be a boolean")
+    if c["training"]["adamw_foreach"] is not None and type(c["training"]["adamw_foreach"]) is not bool:
+        raise ValueError("training.adamw_foreach must be a boolean or null")
     for field in ("output_dir", "cache_dir"):
         if not isinstance(c[field], str) or not c[field].strip():
             raise ValueError(f"{field} must be a nonempty path string")
     if c["model"]["backbone"] not in {"frozen", "full"}:
         raise ValueError("model.backbone must be frozen or full")
+    if c["model"]["vision_gradient_checkpointing"] and c["model"]["backbone"] != "full":
+        raise ValueError("model.vision_gradient_checkpointing requires full backbone training")
     if c["model"]["dtype"] not in {"float32", "bfloat16"}:
         raise ValueError("model.dtype must be float32 or bfloat16")
     _integer(c["model"]["num_inference_steps"], "model.num_inference_steps")
