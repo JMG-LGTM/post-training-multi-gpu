@@ -453,11 +453,22 @@ def verify_dataset(root: str | Path) -> dict:
     return manifest
 
 
-def grouped_split(episodes: list[dict], fraction: float, seed: int) -> dict[str, str]:
+def grouped_split(episodes: list[dict], fraction: float, seed: int,
+                  strategy: str = "hash_rank_count") -> dict[str, str]:
     """Split complete roots, keeping parents, branches and copied prefixes together."""
     if not 0 <= fraction < 1:
         raise ValueError("validation_fraction must be in [0,1)")
     roots = sorted({str(ep["root_run_id"]) for ep in episodes})
+    if strategy == "haizhou_hash_threshold":
+        # Match Haizhou _split exactly: threshold each root, no fixed-count rounding.
+        splits = {root: ("val" if int.from_bytes(hashlib.sha256(f"{seed}:{root}".encode()).digest()[:8], "big")
+                        / float(2**64) < fraction else "train") for root in roots}
+        if splits and all(value == "val" for value in splits.values()):
+            # Upstream's all-validation fallback uses the first selected root.
+            splits[str(episodes[0]["root_run_id"])] = "train"
+        return splits
+    if strategy != "hash_rank_count":
+        raise ValueError("Unknown root split strategy")
     ranked = sorted(roots, key=lambda root: hashlib.sha256(f"{seed}:{root}".encode()).digest())
     if fraction and len(roots) < 2:
         raise ValueError("Root-grouped validation requires at least two roots")
@@ -481,7 +492,8 @@ def inspect_dataset(root: str | Path, config: dict | None = None, *, verify: boo
         raise ValueError("Success confirmation must use five consecutive steps")
     horizon = int(cfg.get("action_horizon", 8))
     episodes = deepcopy(manifest["episodes"])
-    splits = grouped_split(episodes + demonstrations, float(cfg.get("validation_fraction", 0)), int(cfg.get("seed", config.get("seed", 7))))
+    splits = grouped_split(episodes + demonstrations, float(cfg.get("validation_fraction", 0)),
+                           int(cfg.get("seed", config.get("seed", 7))), cfg.get("split_strategy", "hash_rank_count"))
     for ep in episodes:
         ep["split"] = splits[ep["root_run_id"]]
         if horizon != manifest.get("action_horizon", 8):

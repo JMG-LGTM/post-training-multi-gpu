@@ -20,7 +20,7 @@ import torch.distributed as dist
 import yaml
 from torch.utils.data import DataLoader
 
-from .checkpoint import load_checkpoint, save_checkpoint
+from .checkpoint import load_checkpoint, save_checkpoint, rng_state, restore_rng
 from .config import actor_learning_rate, batch_plan, validate_config
 from .distributed import (GlobalBatchSampler, OptimizerGroup, active, initialize,
                           primary_call, rank, reduce_metrics, unwrap, world_size, wrap)
@@ -62,6 +62,8 @@ def dry_run(config, data_root, world):
         raise ValueError("No training samples")
     if data["critic_evaluation"]["held_out"] and not data["val_count"]:
         raise ValueError("No held-out samples; increase validation_fraction")
+    if config["training"]["bc_validation"] and not data["val_count"]:
+        raise ValueError("BC validation requires a nonempty held-out split")
     if config["training"]["sampling"] == "shuffle" and data["train_count"] < plan["global_micro_batch_size"]:
         raise ValueError("Global micro batch exceeds training split")
     identity = None
@@ -117,7 +119,8 @@ def _loader(dataset, config, *, sampler=None, validation=False):
     if sampler is not None:
         kwargs["batch_sampler"] = sampler
     else:
-        kwargs.update(batch_size=config["training"]["per_device_batch_size"], shuffle=False)
+        batch_size = (config["training"]["validation_batch_size"] if validation else None)
+        kwargs.update(batch_size=batch_size or config["training"]["per_device_batch_size"], shuffle=False)
     return DataLoader(dataset, **kwargs)
 
 
@@ -125,6 +128,56 @@ def _tensor_batch(batch, device):
     keys = {"pixels", "next_pixels", "proprio", "next_proprio", "actions", "action_mask",
             "reward", "bootstrap_mask", "chunk_length"}
     return {key: value.to(device, non_blocking=True) for key, value in batch.items() if key in keys}
+
+
+def evaluate_actor(actor, loader, device, *, seed):
+    """Full held-out, sample-mean flow objective with an isolated fixed RNG stream.
+
+    Pi05Policy applies the original per-sample real-action mask before returning
+    losses. The pinned OpenPI forward preprocesses with train=True, so this is a
+    fixed-seed Monte Carlo estimate of the original training objective, including
+    its image augmentation, flow noise and flow time; it is not rollout success.
+    Rank zero calls the unwrapped module while peers wait in primary_call.
+    """
+    actor = unwrap(actor)
+    previous_rng = rng_state(device)
+    generator = getattr(loader, "generator", None)
+    loader_rng = generator.get_state() if generator is not None else None
+    modes = [(module, module.training) for module in actor.modules()]
+    total, count = 0.0, 0
+    try:
+        random.seed(seed)
+        np.random.seed(seed)
+        # torch.manual_seed also changes other visible GPUs' generators. Each
+        # rank owns one device; touch only the CPU and assigned CUDA stream.
+        torch.random.default_generator.manual_seed(seed)
+        if device.type == "cuda":
+            torch.cuda.manual_seed(seed)
+        if generator is not None:
+            generator.manual_seed(seed + 100)
+        actor.eval()
+        with torch.no_grad():
+            for batch in loader:
+                losses = actor(batch)
+                if losses.ndim != 1 or losses.shape[0] != batch["action_mask"].shape[0]:
+                    raise ValueError("Policy must return one validation loss per sample")
+                if not bool(torch.isfinite(losses).all()):
+                    raise FloatingPointError("Nonfinite held-out actor loss")
+                total += float(losses.detach().double().sum().cpu())
+                count += losses.numel()
+        if not count:
+            raise ValueError("BC validation loader is empty")
+        return {"val_actor_loss": total / count, "samples": count, "split": "val", "held_out": True,
+                "seed": seed, "aggregation": "mean_of_per_sample_masked_flow_losses",
+                "objective": "fixed_seed_mc_original_training_flow_objective",
+                "includes_original_openpi_training_augmentation": True}
+    finally:
+        # Preserve mixed frozen/trainable submodule modes exactly, even on error.
+        for module, mode in modes:
+            module.training = mode
+        restore_rng(previous_rng, device)
+        if loader_rng is not None:
+            generator.set_state(loader_rng)
 
 
 def _finite_step(optimizer, parameters, clip, device):
@@ -267,10 +320,28 @@ def _restore_run_artifacts(run_dir, update, metadata):
             previous = step
             if step <= update:
                 kept.append(line)
+    validation_kept = []
+    validation_metrics = run_dir / "validation_metrics.jsonl"
+    if validation_metrics.exists():
+        lines = validation_metrics.read_text().splitlines()
+        previous = 0
+        for index, line in enumerate(lines):
+            try:
+                record = json.loads(line)
+            except json.JSONDecodeError:
+                if index == len(lines) - 1:
+                    break
+                raise ValueError("Invalid validation metrics before the final incomplete line") from None
+            step = record.get("optimizer_update")
+            if type(step) is not int or step <= previous:
+                raise ValueError("Validation metrics contain duplicate or unordered optimizer updates")
+            previous = step
+            if step <= update:
+                validation_kept.append(line)
     # Preserve completed policy exports under the original basename: policy_id
     # remains "policy" and its package continues to pass the platform checker.
     retired_paths = [run_dir / name for name in ("policy", "critic_best.pt", "critic_last.pt",
-        "summary.json", "provenance.json", "config.yaml", "metrics.jsonl", "memory.jsonl") if (run_dir / name).exists()]
+        "summary.json", "provenance.json", "config.yaml", "metrics.jsonl", "validation_metrics.jsonl", "memory.jsonl") if (run_dir / name).exists()]
     if retired_paths:
         retired = run_dir / "retired"
         retired.mkdir(exist_ok=True)
@@ -287,6 +358,16 @@ def _restore_run_artifacts(run_dir, update, metadata):
                 output.flush()
                 os.fsync(output.fileno())
             os.replace(temporary, metrics)
+        finally:
+            Path(temporary).unlink(missing_ok=True)
+    if validation_kept:
+        descriptor, temporary = tempfile.mkstemp(prefix=".validation_metrics.", dir=run_dir)
+        try:
+            with os.fdopen(descriptor, "w") as output:
+                output.write("".join(line + "\n" for line in validation_kept))
+                output.flush()
+                os.fsync(output.fileno())
+            os.replace(temporary, validation_metrics)
         finally:
             Path(temporary).unlink(missing_ok=True)
     # Explicit --resume is the user's request to continue after a prior stop.
@@ -320,7 +401,7 @@ def _train(config, data_root, device, resume, stopping):
         elif run_dir.exists() and any(run_dir.iterdir()):
             raise FileExistsError("output_dir is not empty; use a fresh directory or --resume")
         info = inspect_dataset(data_root, config, verify=True)
-        if not info["train_count"] or (info["critic_evaluation"]["held_out"] and not info["val_count"]):
+        if not info["train_count"] or ((info["critic_evaluation"]["held_out"] or cfg["bc_validation"]) and not info["val_count"]):
             raise ValueError("Training/validation split is empty")
         identity = None
         if config["method"] != "critic":
@@ -353,6 +434,10 @@ def _train(config, data_root, device, resume, stopping):
     if len(dataset) != prepared["train_chunks"] or (
             validation is not None and len(validation) != evaluation_spec["chunks"]):
         raise ValueError("Cached replay counts differ from the inspected training/evaluation splits")
+    if cfg["bc_validation"]:
+        validation = CachedReplayDataset(prepared["cache"], split="val")
+        if len(validation) != prepared["validation_chunks"]:
+            raise ValueError("Cached held-out actor split count differs from inspection")
     normalization = dataset.metadata["normalization"]
     random.seed(cfg["seed"])
     np.random.seed(cfg["seed"])
@@ -399,6 +484,7 @@ def _train(config, data_root, device, resume, stopping):
                 "dataset_sha256": prepared["dataset_sha256"], "reward_sha256": stable_hash(config["reward"]),
                 "best_metric": None, "best_update": None, "best_critic_export": None,
                 "last_validation_metric": None, "last_validation_update": None,
+                "last_bc_validation_loss": None, "last_bc_validation_update": None,
                 "last_diagnostic_metric": None, "last_diagnostic_update": None}
     start = 0
     if resume:
@@ -426,6 +512,10 @@ def _train(config, data_root, device, resume, stopping):
                       "weight_decay": optimizers["q"].param_groups[0]["weight_decay"]} if critic is not None else None),
                   "model_parameters": unwrap(actor).parameter_counts() if actor is not None else None,
                   "sample_count_unit": "draws_including_repeated_samples", "contract": contract}
+    provenance["actor_evaluation"] = {"enabled": cfg["bc_validation"], "held_out": cfg["bc_validation"],
+        "split": "val" if cfg["bc_validation"] else None, "interval": cfg["validation_interval"],
+        "seed": cfg["validation_seed"], "batch_size": cfg["validation_batch_size"] or cfg["per_device_batch_size"],
+        "objective": "fixed_seed_mc_original_training_flow_objective"}
     def write_setup():
         run_dir.mkdir(parents=True, exist_ok=True)
         (run_dir / "config.yaml").write_text(yaml.safe_dump(effective, sort_keys=False))
@@ -435,7 +525,8 @@ def _train(config, data_root, device, resume, stopping):
     sampler = GlobalBatchSampler(len(dataset), plan["global_micro_batch_size"], rank(), world_size(),
         cfg["seed"] + 1, start * plan["gradient_accumulation_steps"], plan["micro_batches"], cfg["sampling"])
     loader = _loader(dataset, config, sampler=sampler)
-    validation_loader = _loader(validation, config, validation=True) if rank() == 0 and critic is not None else None
+    validation_loader = (_loader(validation, config, validation=True)
+                         if rank() == 0 and (critic is not None or cfg["bc_validation"]) else None)
     iterator = iter(loader)
     writer = None
     def start_writer():
@@ -539,6 +630,19 @@ def _train(config, data_root, device, resume, stopping):
                         export_current_critic(name, last_update)
                         _atomic_copy(run_dir / name, run_dir / "critic_best.pt")
                     primary_call(export_best)
+            if cfg["bc_validation"] and (last_update % cfg["validation_interval"] == 0 or final):
+                evaluation = primary_call(lambda: evaluate_actor(actor, validation_loader, device,
+                                                                  seed=cfg["validation_seed"]))
+                evaluation.update(optimizer_update=last_update)
+                metrics["val_actor_loss"] = evaluation["val_actor_loss"]
+                metadata.update(last_bc_validation_loss=evaluation["val_actor_loss"],
+                                last_bc_validation_update=last_update)
+                def write_actor_validation():
+                    with (run_dir / "validation_metrics.jsonl").open("a") as handle:
+                        handle.write(json.dumps(evaluation, allow_nan=False) + "\n")
+                    if writer is not None:
+                        writer.add_scalar("validation/actor_loss", evaluation["val_actor_loss"], last_update)
+                primary_call(write_actor_validation)
             def write_metrics():
                 with (run_dir / "metrics.jsonl").open("a") as handle:
                     handle.write(json.dumps(metrics, allow_nan=False) + "\n")
@@ -583,6 +687,8 @@ def _train(config, data_root, device, resume, stopping):
                    "best_critic_update": metadata["best_update"],
                    **_split_report(prepared),
                    "last_critic_diagnostic_spearman": metadata["last_diagnostic_metric"],
+                   "last_bc_validation_loss": metadata.get("last_bc_validation_loss"),
+                   "last_bc_validation_update": metadata.get("last_bc_validation_update"),
                    "critic_initialization": prepared["critic_initialization"],
                    "memory_metrics": memory_peaks, "checkpoint_format": cfg["checkpoint_format"],
                    "elapsed_seconds": time.perf_counter() - started}

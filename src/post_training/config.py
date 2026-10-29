@@ -18,13 +18,14 @@ DEFAULTS = {
     "data": {"action_horizon": 8, "action_dim": 7, "proprio_dim": 8,
              "include_post_success": False, "image_flip_vertical": True,
              "image_flip_horizontal": False, "validation_fraction": 0.2, "seed": 7,
-             "normalization": None},
+             "normalization": None, "split_strategy": "hash_rank_count"},
     "training": {"global_batch_size": 16, "per_device_batch_size": 2,
                  "gradient_accumulation_steps": "auto", "optimizer_updates": 800,
                  "seed": 7, "learning_rate": 3e-5, "final_learning_rate": 3e-6,
                  "warmup_updates": 80, "weight_decay": 1e-10, "grad_clip": 1.0,
                  "checkpoint_interval": 100, "checkpoint_format": "consolidated", "log_interval": 10,
-                 "validation_interval": 500, "tensorboard": True,
+                 "validation_interval": 500, "bc_validation": False,
+                 "validation_batch_size": None, "validation_seed": 17007, "tensorboard": True,
                  "zero_optimizer": True, "sampling": "shuffle", "deterministic": False},
     "critic": {"image_size": 128, "learning_rate": 3e-4, "value_learning_rate": 3e-4,
                "optimizer": "adamw", "weight_decay": 0.01, "grad_clip": 10.0, "expectile": 0.8, "tau": 0.005,
@@ -68,7 +69,7 @@ def load_config(path, *, method=None):
 def validate_config(c):
     if type(c["schema_version"]) is not int or c["schema_version"] != 1 or c["method"] not in {"bc", "iql", "critic"}:
         raise ValueError("Expected schema_version=1 and method bc|iql|critic")
-    for section, field in (("training", "tensorboard"), ("training", "zero_optimizer"),
+    for section, field in (("training", "tensorboard"), ("training", "bc_validation"), ("training", "zero_optimizer"),
                            ("training", "deterministic"), ("distributed", "pin_memory")):
         if type(c[section][field]) is not bool:
             raise ValueError(f"{section}.{field} must be a boolean")
@@ -88,6 +89,7 @@ def validate_config(c):
         for field in fields:
             _integer(c[section][field], f"{section}.{field}")
     for section, field in [("training", "seed"), ("training", "warmup_updates"), ("data", "seed"),
+                           ("training", "validation_seed"),
                            ("critic", "warmup_updates"), ("critic", "random_shift_pad"),
                            ("distributed", "workers_per_rank")]:
         _integer(c[section][field], f"{section}.{field}", 0)
@@ -101,6 +103,12 @@ def validate_config(c):
         raise ValueError("validation_fraction must be in [0,1)")
     if c["method"] == "critic" and fraction <= 0:
         raise ValueError("critic requires a root-grouped validation split")
+    if c["data"]["split_strategy"] not in {"hash_rank_count", "haizhou_hash_threshold"}:
+        raise ValueError("Unknown data.split_strategy")
+    if c["training"]["validation_batch_size"] is not None:
+        _integer(c["training"]["validation_batch_size"], "training.validation_batch_size")
+    if c["training"]["bc_validation"] and (c["method"] != "bc" or fraction <= 0):
+        raise ValueError("training.bc_validation requires BC and a held-out validation split")
     if c["data"]["include_post_success"] is not False:
         raise ValueError("Version 1 requires include_post_success=false")
     if c["data"]["image_flip_vertical"] is not True or c["data"]["image_flip_horizontal"] is not False:
