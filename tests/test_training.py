@@ -185,6 +185,44 @@ def test_real_signal_during_accumulation_saves_complete_update_and_resumes(
     assert previous_handlers == {kind: signal.getsignal(kind) for kind in previous_handlers}
 
 
+def test_bc_stop_on_final_update_completes_checkpoint_and_exports_policy(
+        runner_dataset, tmp_path, monkeypatch, base):
+    """SIGTERM at the final optimizer boundary must not strand a finished actor."""
+    model_root = install_fake_policy(monkeypatch, base)
+    config = configuration(tmp_path, method="bc", updates=2)
+    config["model"]["checkpoint"] = str(model_root)
+    config["output_dir"] = str(tmp_path / "reference_final")
+    reference = training.train(config, runner_dataset)
+    expected = load_snapshot(reference["checkpoint"])
+
+    config["output_dir"] = str(tmp_path / "signal_on_final")
+    original_step = training.optimization_step
+    updates = []
+
+    def signal_after_final_step(*args, **kwargs):
+        result = original_step(*args, **kwargs)
+        updates.append(1)
+        if len(updates) == config["training"]["optimizer_updates"]:
+            os.kill(os.getpid(), signal.SIGTERM)
+        return result
+
+    monkeypatch.setattr(training, "optimization_step", signal_after_final_step)
+    completed = training.train(config, runner_dataset)
+    assert completed["status"] == "COMPLETED"
+    assert completed["optimizer_updates"] == completed["policy_optimizer_updates"] == 2
+    assert completed["critic_optimizer_updates"] == 0
+    assert len(updates) == 2
+    actual = load_snapshot(completed["checkpoint"])
+    assert actual["update"] == 2 and actual["accumulation_boundary"] is True
+    for name, value in expected["actor"].items():
+        torch.testing.assert_close(actual["actor"][name], value, atol=0, rtol=0)
+    policy = validate_policy_package(Path(completed["policy"]).parent)
+    assert policy["algorithm"] == "bc" and policy["training_step"] == 2
+    metrics = [json.loads(line) for line in
+               (Path(config["output_dir"]) / "metrics.jsonl").read_text().splitlines()]
+    assert [record["optimizer_update"] for record in metrics] == [1, 2]
+
+
 def test_critic_runner_in_fresh_process_never_imports_policy_or_openpi(runner_dataset, tmp_path):
     config = configuration(tmp_path, updates=1)
     config["model"]["checkpoint"] = "/deliberately/missing/policy"

@@ -430,11 +430,14 @@ def verify_dataset(root: str | Path) -> dict:
     """Verify every packaged byte and manifest identity before data is consumed."""
     root = Path(root).resolve()
     manifest = json.loads(safe_path(root, "manifest.json").read_text())
-    if type(manifest.get("schema_version")) is not int or manifest.get("schema_version") != SCHEMA_VERSION or manifest.get("format") != "liberox-native-post-training":
+    from .official_bc import MIXED_FORMAT, validate_demonstrations, verify_demo_payloads
+    if (type(manifest.get("schema_version")) is not int or manifest.get("schema_version") != SCHEMA_VERSION
+            or manifest.get("format") not in {"liberox-native-post-training", MIXED_FORMAT}):
         raise ValueError("Unsupported portable dataset format/version")
     if manifest.get("dataset_sha256") != _manifest_identity(manifest):
         raise ValueError("Dataset manifest SHA-256 identity mismatch")
     validate_manifest_contract(manifest)
+    validate_demonstrations(manifest)
     for relative, expected in manifest["files"].items():
         path = safe_path(root, relative)
         if not path.is_file() or path.stat().st_size != expected["size"] or sha256_file(path) != expected["sha256"]:
@@ -446,6 +449,7 @@ def verify_dataset(root: str | Path) -> dict:
             if ep[key] not in manifest["files"]:
                 raise ValueError(f"Unhashed episode file: {ep[key]}")
             safe_path(root, ep[key])
+    verify_demo_payloads(root, manifest)
     return manifest
 
 
@@ -466,6 +470,10 @@ def inspect_dataset(root: str | Path, config: dict | None = None, *, verify: boo
     """Build exact lightweight chunk rows for dry-run, without image decompression."""
     root, config = Path(root), config or {}
     manifest = verify_dataset(root) if verify else json.loads((root / "manifest.json").read_text())
+    from .official_bc import demo_rows
+    demonstrations = deepcopy(manifest.get("bc_demonstrations", []))
+    if demonstrations and config.get("method", "bc") != "bc":
+        raise ValueError("Observation/action-only official demonstrations are BC-only; IQL/critic require genuine transitions")
     cfg = config.get("data", {})
     if cfg.get("include_post_success", False) is not False:
         raise ValueError("Version 1 requires include_post_success=false")
@@ -473,7 +481,7 @@ def inspect_dataset(root: str | Path, config: dict | None = None, *, verify: boo
         raise ValueError("Success confirmation must use five consecutive steps")
     horizon = int(cfg.get("action_horizon", 8))
     episodes = deepcopy(manifest["episodes"])
-    splits = grouped_split(episodes, float(cfg.get("validation_fraction", 0)), int(cfg.get("seed", config.get("seed", 7))))
+    splits = grouped_split(episodes + demonstrations, float(cfg.get("validation_fraction", 0)), int(cfg.get("seed", config.get("seed", 7))))
     for ep in episodes:
         ep["split"] = splits[ep["root_run_id"]]
         if horizon != manifest.get("action_horizon", 8):
@@ -490,6 +498,17 @@ def inspect_dataset(root: str | Path, config: dict | None = None, *, verify: boo
             recording_success=bool(ep["success"]), copied_prefix=bool(chunk.get("copied_prefix")),
             bootstrap_mask=0.0 if ep["success"] and int(chunk["end"]) == end else 1.0,
             reward=0.0 if ep["success"] and int(chunk["end"]) > ep["terminal_step"] else -1.0))
+    native_count = len(rows)
+    if demonstrations:
+        # Mixed BC batches share only truthful actor metadata. There are no fake
+        # terminal/reward/success entries for demonstrations and no unused target
+        # transition arrays. Native replay boundaries and sample order are retained.
+        actor_keys = ("run_id", "root_run_id", "split", "prompt", "start", "end", "action_source", "origin_run_id", "copied_prefix")
+        rows = [{**{key: row[key] for key in actor_keys}, "source_type": "native"} for row in rows]
+        rows.extend(demo_rows(demonstrations, horizon, splits))
+        for ep in demonstrations:
+            ep["split"] = splits[ep["root_run_id"]]
+        episodes.extend(demonstrations)
     train_count = sum(row["split"] == "train" for row in rows)
     val_count = sum(row["split"] == "val" for row in rows)
     has_critic = config.get("method", "bc") in {"critic", "iql"}
@@ -503,7 +522,10 @@ def inspect_dataset(root: str | Path, config: dict | None = None, *, verify: boo
                 dataset_chunks=len(rows), train_chunks=train_count, validation_chunks=val_count,
                 critic_evaluation=evaluation, counts=dict(Counter(row["split"] for row in rows)),
                 root_counts=dict(Counter(splits.values())), action_horizon=horizon,
-                termination_rule=TERMINATION_RULE)
+                termination_rule=TERMINATION_RULE,
+                native_members=manifest["member_count"], official_demonstrations=len(demonstrations),
+                total_training_episodes=len(episodes), native_chunks=native_count,
+                official_bc_chunks=len(rows) - native_count)
 
 
 def package_dataset(dataset_root: str | Path, output: str | Path, *, dataset_id: str | None = None,

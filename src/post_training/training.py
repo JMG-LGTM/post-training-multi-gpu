@@ -512,7 +512,7 @@ def _train(config, data_root, device, resume, stopping):
             stop_requested = torch.tensor(int(stopping() or (run_dir / "stop.request").exists()), device=device)
             if active():
                 dist.all_reduce(stop_requested, op=dist.ReduceOp.MAX)
-            stopped = bool(stop_requested)
+            stopped = bool(stop_requested) and last_update < plan["optimizer_updates"]
             final = last_update == plan["optimizer_updates"] or stopped
             if critic is not None and (last_update % cfg["validation_interval"] == 0 or final):
                 def validate():
