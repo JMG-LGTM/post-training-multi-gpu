@@ -16,6 +16,7 @@ DEFAULTS = {
     "model": {"checkpoint": "models/pi05_liberox_torch", "backbone": "frozen",
               "dtype": "bfloat16", "num_inference_steps": 10,
               "vision_gradient_checkpointing": False, "actor_init_policy": None},
+    "actor_bc": {"dataset_root": None, "weight": 0.1, "per_device_batch_size": 1},
     "data": {"action_horizon": 8, "action_dim": 7, "proprio_dim": 8,
              "include_post_success": False, "image_flip_vertical": True,
              "image_flip_horizontal": False, "validation_fraction": 0.2, "seed": 7,
@@ -95,6 +96,20 @@ def validate_config(c):
         raise ValueError("model.vision_gradient_checkpointing requires full backbone training")
     if c["model"]["dtype"] not in {"float32", "bfloat16"}:
         raise ValueError("model.dtype must be float32 or bfloat16")
+    auxiliary = c["actor_bc"]
+    _integer(auxiliary["per_device_batch_size"], "actor_bc.per_device_batch_size")
+    if auxiliary["dataset_root"] is not None:
+        if not isinstance(auxiliary["dataset_root"], str) or not auxiliary["dataset_root"].strip():
+            raise ValueError("actor_bc.dataset_root must be a nonempty path or null")
+        if c["method"] != "iql":
+            raise ValueError("actor_bc auxiliary is only supported for IQL")
+        if c["training"]["gradient_accumulation_steps"] not in {1, "auto"}:
+            raise ValueError("actor_bc uses one effective actor batch, without gradient accumulation")
+        if auxiliary["per_device_batch_size"] >= c["training"]["per_device_batch_size"]:
+            raise ValueError("actor_bc must leave at least one native actor sample per device")
+    if (type(auxiliary["weight"]) not in (int, float) or not math.isfinite(auxiliary["weight"])
+            or auxiliary["weight"] <= 0):
+        raise ValueError("actor_bc.weight must be finite and positive")
     _integer(c["model"]["num_inference_steps"], "model.num_inference_steps")
     for section, fields in {
         "training": ["global_batch_size", "per_device_batch_size", "optimizer_updates", "checkpoint_interval", "log_interval", "validation_interval"],
@@ -177,13 +192,21 @@ def batch_plan(c, world_size):
         raise ValueError("global_batch_size != per_device_batch_size * world_size * gradient_accumulation_steps")
     warmup = c["critic"]["warmup_updates"] if c["method"] == "iql" else 0
     updates = t["optimizer_updates"] + warmup
-    return {"world_size": world_size, "global_batch_size": t["global_batch_size"],
+    plan = {"world_size": world_size, "global_batch_size": t["global_batch_size"],
             "per_device_batch_size": t["per_device_batch_size"], "global_micro_batch_size": micro,
             "gradient_accumulation_steps": accumulation, "optimizer_updates": updates,
             "policy_optimizer_updates": t["optimizer_updates"] if c["method"] != "critic" else 0,
             "critic_optimizer_updates": updates if c["method"] != "bc" else 0,
             "critic_warmup_updates": warmup, "micro_batches": updates * accumulation,
             "expected_sample_draws": updates * t["global_batch_size"]}
+    if c["actor_bc"]["dataset_root"] is not None:
+        if accumulation != 1:
+            raise ValueError("actor_bc requires gradient_accumulation_steps=1 on the selected world size")
+        official = c["actor_bc"]["per_device_batch_size"] * world_size
+        plan.update(global_actor_batch_size=t["global_batch_size"],
+            global_native_actor_batch_size=t["global_batch_size"] - official,
+            global_official_bc_batch_size=official, global_critic_batch_size=t["global_batch_size"])
+    return plan
 
 
 def actor_learning_rate(update, total, peak, final, warmup):

@@ -58,6 +58,8 @@ def dry_run(config, data_root, world):
     from .preflight import environment_report
     environment = environment_report(config, world)
     data = inspect_dataset(data_root, config, verify=True)
+    from .actor_bc import inspect_actor_bc
+    actor_bc_auxiliary = inspect_actor_bc(config["actor_bc"]["dataset_root"], config, data)
     if not data["train_count"]:
         raise ValueError("No training samples")
     if data["critic_evaluation"]["held_out"] and not data["val_count"]:
@@ -95,6 +97,7 @@ def dry_run(config, data_root, world):
             "dataset_sha256": data["dataset_sha256"], "chunks": data["count"],
             **_split_report(data), "critic_initialization": initialization,
             "actor_initialization": actor_initialization,
+            "actor_bc_auxiliary": actor_bc_auxiliary,
             "model_identity": identity, "policy_loaded": False,
             "reward_definition": config["reward"], "output_dir": config["output_dir"],
             "sampling": config["training"]["sampling"],
@@ -110,6 +113,20 @@ def _critic_model_config(config):
     return dict(horizon=config["data"]["action_horizon"], action_dim=config["data"]["action_dim"],
                 proprio_dim=config["data"]["proprio_dim"], pixel_channels=6,
                 discount=config["reward"]["discount"], expectile=config["critic"]["expectile"], tau=config["critic"]["tau"])
+
+
+def _sample_counters(plan, update, *, actor, critic):
+    actor_updates = max(0, update - plan["critic_warmup_updates"]) if actor else 0
+    actor_batch = plan.get("global_actor_batch_size", plan["global_batch_size"]) if actor else 0
+    native_batch = plan.get("global_native_actor_batch_size", actor_batch) if actor else 0
+    official_batch = plan.get("global_official_bc_batch_size", 0) if actor else 0
+    critic_batch = plan["global_batch_size"] if critic else 0
+    return {"policy_sample_draws": actor_updates * actor_batch,
+        "native_actor_sample_draws": actor_updates * native_batch,
+        "official_bc_sample_draws": actor_updates * official_batch,
+        "critic_sample_draws": update * critic_batch,
+        "global_actor_batch_size": actor_batch, "global_native_actor_batch_size": native_batch,
+        "global_official_bc_batch_size": official_batch, "global_critic_batch_size": critic_batch}
 
 
 def _loader(dataset, config, *, sampler=None, validation=False):
@@ -205,12 +222,27 @@ def _finite_loss(loss, device):
         raise FloatingPointError("Nonfinite loss; this optimizer stage was not updated")
 
 
-def optimization_step(config, batches, actor, critic, optimizers, device, *, actor_update):
+def optimization_step(config, batches, actor, critic, optimizers, device, *, actor_update,
+                      official_bc_batches=None):
     """One effective batch, preserving V -> Q -> target -> actor update order."""
     from .critic import augment_batch
     accumulation = len(batches)
     if accumulation < 1:
         raise ValueError("An optimizer update requires at least one microbatch")
+    auxiliary = config["actor_bc"]["dataset_root"] is not None
+    if auxiliary and actor_update is not None and (accumulation != 1 or official_bc_batches is None
+                                                   or len(official_bc_batches) != accumulation):
+        raise ValueError("Official BC auxiliary requires one combined actor batch and one backward")
+    if not auxiliary and official_bc_batches is not None:
+        raise ValueError("Official BC batch supplied to pure IQL/BC")
+    combined_batches = None
+    if auxiliary and actor_update is not None:
+        from .actor_bc import actor_batch
+        combined_batches = []
+        for native, official in zip(batches, official_bc_batches):
+            if official["raw_actions"].shape[0] != config["actor_bc"]["per_device_batch_size"]:
+                raise ValueError("Official BC sample count differs from the actor batch contract")
+            combined_batches.append(actor_batch(native, official))
     metrics = {}
     if critic is not None:
         # Only small uint8 critic inputs remain resident across the two stages.
@@ -241,21 +273,36 @@ def optimization_step(config, batches, actor, critic, optimizers, device, *, act
             group["lr"] = lr
         optimizer.zero_grad()
         actor_losses, unweighted_losses, weights_mean = [], [], []
+        native_iql_losses, official_losses, auxiliary_losses = [], [], []
         advantages_mean, advantages_second_moment, weights_second_moment, clipped = [], [], [], []
         for index, batch in enumerate(batches):
-            scores = (unwrap(critic).scores(_tensor_batch(batch, device), beta=config["critic"]["beta"],
+            actor_inputs, native_batch = batch, batch
+            native_count = batch["action_mask"].shape[0]
+            if auxiliary:
+                actor_inputs, native_batch, native_count = combined_batches[index]
+            scores = (unwrap(critic).scores(_tensor_batch(native_batch, device), beta=config["critic"]["beta"],
                       max_weight=config["critic"]["max_weight"]) if critic is not None else None)
             weight = scores["weights"] if scores is not None else None
             context = actor.no_sync() if hasattr(actor, "no_sync") and index + 1 < accumulation else nullcontext()
             with context:
-                losses = actor(batch)
+                losses = actor(actor_inputs)
                 if losses.ndim != 1 or losses.shape[0] != batch["action_mask"].shape[0]:
                     raise ValueError("Policy must return one scalar loss per sample")
-                loss = losses.mean() if weight is None else (losses * weight).mean()
+                native_losses = losses[:native_count]
+                native_loss = native_losses.mean() if weight is None else (native_losses * weight).mean()
+                if auxiliary:
+                    official_loss = losses[native_count:].mean()
+                    auxiliary_loss = config["actor_bc"]["weight"] * official_loss
+                    loss = native_loss + auxiliary_loss
+                    native_iql_losses.append(float(native_loss.detach()))
+                    official_losses.append(float(official_loss.detach()))
+                    auxiliary_losses.append(float(auxiliary_loss.detach()))
+                else:
+                    loss = native_loss
                 _finite_loss(loss, device)
                 (loss / accumulation).backward()
             actor_losses.append(float(loss.detach()))
-            unweighted_losses.append(float(losses.detach().mean()))
+            unweighted_losses.append(float(native_losses.detach().mean()))
             weights_mean.append(float(weight.mean()) if weight is not None else 1.0)
             if scores is not None:
                 advantage = scores["advantage"].double()
@@ -274,6 +321,11 @@ def optimization_step(config, batches, actor, critic, optimizers, device, *, act
                 advantage_second_moment=sum(advantages_second_moment) / accumulation,
                 actor_weight_second_moment=sum(weights_second_moment) / accumulation,
                 actor_weight_clip_fraction=sum(clipped) / accumulation)
+        if auxiliary:
+            metrics.update(native_iql_actor_loss=sum(native_iql_losses) / accumulation,
+                official_bc_loss=sum(official_losses) / accumulation,
+                official_bc_aux_loss=sum(auxiliary_losses) / accumulation,
+                unweighted_native_actor_loss=sum(unweighted_losses) / accumulation)
     return metrics
 
 
@@ -445,10 +497,14 @@ def _train(config, data_root, device, resume, stopping):
                     raise ValueError("Explicit normalization differs from critic initialization")
         print("Preparing verified replay cache (CPU); no per-sample NPZ reads during training", flush=True)
         cache, reused = build_replay_cache(data_root, Path(config["cache_dir"]), config, norm_stats=normalization)
-        return {"cache": str(cache), "cache_reused": reused, "dataset_sha256": info["dataset_sha256"],
+        from .actor_bc import build_actor_bc_cache
+        auxiliary = build_actor_bc_cache(config["actor_bc"]["dataset_root"],
+            Path(config["cache_dir"]) / "official_actor_bc", config, info)
+        result = {"cache": str(cache), "cache_reused": reused, "dataset_sha256": info["dataset_sha256"],
                 "train_count": info["train_count"], "val_count": info["val_count"], "model_identity": identity,
                 **_split_report(info), "critic_initialization": initialization,
-                "actor_initialization": actor_initialization}
+                "actor_initialization": actor_initialization, "actor_bc_auxiliary": auxiliary}
+        return result
 
     prepared = primary_call(prepare)
     dataset = CachedReplayDataset(prepared["cache"], split="train")
@@ -509,9 +565,16 @@ def _train(config, data_root, device, resume, stopping):
                 "model_identity_sha256": stable_hash(prepared["model_identity"]),
                 "critic_initialization_sha256": stable_hash(prepared["critic_initialization"]),
                 "actor_initialization_sha256": stable_hash(prepared["actor_initialization"]),
+                "actor_bc_auxiliary_sha256": stable_hash(prepared["actor_bc_auxiliary"]),
+                "actor_bc_dataset_sha256": (prepared["actor_bc_auxiliary"]["dataset_sha256"]
+                                            if prepared["actor_bc_auxiliary"] is not None else None),
+                "actor_bc_weight": config["actor_bc"]["weight"] if prepared["actor_bc_auxiliary"] is not None else None,
+                "actor_bc_per_device_batch_size": (config["actor_bc"]["per_device_batch_size"]
+                                                   if prepared["actor_bc_auxiliary"] is not None else 0),
                 "termination_rule": config["reward"]["termination_rule"], **plan}
     metadata = {"method": config["method"], "model_identity": prepared["model_identity"],
                 "actor_initialization": prepared["actor_initialization"],
+                "actor_bc_auxiliary": prepared["actor_bc_auxiliary"],
                 "model_settings": unwrap(actor).settings if actor is not None else None,
                 "dataset_sha256": prepared["dataset_sha256"], "reward_sha256": stable_hash(config["reward"]),
                 "best_metric": None, "best_update": None, "best_critic_export": None,
@@ -548,6 +611,17 @@ def _train(config, data_root, device, resume, stopping):
         "split": "val" if cfg["bc_validation"] else None, "interval": cfg["validation_interval"],
         "seed": cfg["validation_seed"], "batch_size": cfg["validation_batch_size"] or cfg["per_device_batch_size"],
         "objective": "fixed_seed_mc_original_training_flow_objective"}
+    provenance["sample_draws_definition"] = "main_native_replay_draws_including_critic_warmup; see separate policy/native_actor/official_bc/critic counters"
+    provenance["actor_objective"] = ({"kind": "native_iql_plus_official_bc",
+        "formula": "mean(native_flow_loss * IQL_weight) + lambda * mean(official_flow_loss)",
+        "lambda": config["actor_bc"]["weight"], "single_forward_and_backward": True,
+        "native_samples": "prefix_of_each_native_critic_batch", "official_sampler": {
+            "kind": "global_step_rank_reconstructible_replacement", "seed": cfg["seed"] + 104729,
+            "start_unit": "completed_actor_microbatches", "prefetch_state_required": False},
+        "native_transition_dataset_sha256": prepared["dataset_sha256"],
+        "official_bc_dataset_sha256": prepared["actor_bc_auxiliary"]["dataset_sha256"],
+        **_sample_counters(plan, 0, actor=True, critic=True)}
+        if prepared["actor_bc_auxiliary"] is not None else {"kind": "pure_" + config["method"]})
     def write_setup():
         run_dir.mkdir(parents=True, exist_ok=True)
         (run_dir / "config.yaml").write_text(yaml.safe_dump(effective, sort_keys=False))
@@ -560,6 +634,15 @@ def _train(config, data_root, device, resume, stopping):
     validation_loader = (_loader(validation, config, validation=True)
                          if rank() == 0 and (critic is not None or cfg["bc_validation"]) else None)
     iterator = iter(loader)
+    official_iterator = None
+    if prepared["actor_bc_auxiliary"] is not None:
+        official = CachedReplayDataset(prepared["actor_bc_auxiliary"]["cache"], split="train")
+        official_sampler = GlobalBatchSampler(len(official), config["actor_bc"]["per_device_batch_size"] * world_size(),
+            rank(), world_size(), cfg["seed"] + 104729,
+            max(0, start - plan["critic_warmup_updates"]) * plan["gradient_accumulation_steps"],
+            cfg["optimizer_updates"] * plan["gradient_accumulation_steps"], "replacement")
+        official_loader = _loader(official, config, sampler=official_sampler)
+        official_iterator = iter(official_loader)
     writer = None
     def start_writer():
         if cfg["tensorboard"]:
@@ -610,10 +693,13 @@ def _train(config, data_root, device, resume, stopping):
         for update in range(start, plan["optimizer_updates"]):
             begin = time.perf_counter()
             batches = [next(iterator) for _ in range(plan["gradient_accumulation_steps"])]
-            data_wait = time.perf_counter() - begin
             actor_update = update - plan["critic_warmup_updates"]
+            additional = {}
+            if official_iterator is not None and actor_update >= 0:
+                additional["official_bc_batches"] = [next(official_iterator) for _ in range(plan["gradient_accumulation_steps"])]
+            data_wait = time.perf_counter() - begin
             metrics = optimization_step(config, batches, actor, critic, optimizers, device,
-                actor_update=actor_update if actor is not None and actor_update >= 0 else None)
+                actor_update=actor_update if actor is not None and actor_update >= 0 else None, **additional)
             if device.type == "cuda":
                 torch.cuda.synchronize(device)
             duration = time.perf_counter() - begin
@@ -626,9 +712,10 @@ def _train(config, data_root, device, resume, stopping):
                 second = metrics.pop("advantage_second_moment")
                 metrics["advantage_std"] = math.sqrt(max(0.0, second - metrics["advantage_mean"] ** 2))
                 weight_second = metrics.pop("actor_weight_second_moment")
+                weight_batch_size = plan.get("global_native_actor_batch_size", plan["global_batch_size"])
                 metrics["actor_weight_effective_sample_size"] = (
-                    min(plan["global_batch_size"],
-                        plan["global_batch_size"] * metrics["actor_weight_mean"] ** 2 / weight_second)
+                    min(weight_batch_size,
+                        weight_batch_size * metrics["actor_weight_mean"] ** 2 / weight_second)
                     if weight_second > 0 else 0.0)
             slow = torch.tensor([duration, torch.cuda.max_memory_allocated(device) / 1024 ** 3
                                  if device.type == "cuda" else 0.0], device=device, dtype=torch.float64)
@@ -643,6 +730,7 @@ def _train(config, data_root, device, resume, stopping):
                 gradient_accumulation_steps=plan["gradient_accumulation_steps"],
                 update_seconds=float(slow[0]), samples_per_second=plan["global_batch_size"] / max(float(slow[0]), 1e-12),
                 peak_cuda_memory_gib=float(slow[1]), elapsed_seconds=time.perf_counter() - started)
+            metrics.update(_sample_counters(plan, last_update, actor=actor is not None, critic=critic is not None))
             stop_requested = torch.tensor(int(stopping() or (run_dir / "stop.request").exists()), device=device)
             if active():
                 dist.all_reduce(stop_requested, op=dist.ReduceOp.MAX)
@@ -734,6 +822,8 @@ def _train(config, data_root, device, resume, stopping):
                    "last_bc_validation_update": metadata.get("last_bc_validation_update"),
                    "critic_initialization": prepared["critic_initialization"],
                    "actor_initialization": prepared["actor_initialization"],
+                   "actor_bc_auxiliary": prepared["actor_bc_auxiliary"],
+                   **_sample_counters(plan, last_update, actor=actor is not None, critic=critic is not None),
                    "memory_metrics": memory_peaks, "checkpoint_format": cfg["checkpoint_format"],
                    "elapsed_seconds": time.perf_counter() - started}
         primary_call(lambda: atomic_json(run_dir / "summary.json", summary))
