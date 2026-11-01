@@ -22,7 +22,7 @@ from torch.utils.data import DataLoader
 
 from .checkpoint import load_checkpoint, save_checkpoint, rng_state, restore_rng
 from .config import actor_learning_rate, batch_plan, validate_config
-from .distributed import (GlobalBatchSampler, OptimizerGroup, active, initialize,
+from .distributed import (GlobalBatchSampler, OptimizerGroup, active, all_rank_call, initialize,
                           primary_call, rank, reduce_metrics, unwrap, world_size, wrap)
 from .io import atomic_json, sha256_file, stable_hash
 
@@ -71,6 +71,9 @@ def dry_run(config, data_root, world):
         from .pi05_assets import checkpoint_identity, platform_model_settings
         identity = checkpoint_identity(config["model"]["checkpoint"])
         platform_model_settings(config["model"], identity)
+    from .actor_init import inspect_actor_init_policy
+    actor_initialization = inspect_actor_init_policy(config["model"]["actor_init_policy"],
+        identity=identity, model_config=config["model"])
     initialization = None
     if config["critic"]["init_checkpoint"]:
         from .critic import default_input_spec, read_critic_metadata
@@ -91,6 +94,7 @@ def dry_run(config, data_root, world):
             "environment": environment,
             "dataset_sha256": data["dataset_sha256"], "chunks": data["count"],
             **_split_report(data), "critic_initialization": initialization,
+            "actor_initialization": actor_initialization,
             "model_identity": identity, "policy_loaded": False,
             "reward_definition": config["reward"], "output_dir": config["output_dir"],
             "sampling": config["training"]["sampling"],
@@ -236,10 +240,12 @@ def optimization_step(config, batches, actor, critic, optimizers, device, *, act
         for group in optimizer.param_groups:
             group["lr"] = lr
         optimizer.zero_grad()
-        actor_losses, weights_mean = [], []
+        actor_losses, unweighted_losses, weights_mean = [], [], []
+        advantages_mean, advantages_second_moment, weights_second_moment, clipped = [], [], [], []
         for index, batch in enumerate(batches):
-            weight = (unwrap(critic).weights(_tensor_batch(batch, device), beta=config["critic"]["beta"],
+            scores = (unwrap(critic).scores(_tensor_batch(batch, device), beta=config["critic"]["beta"],
                       max_weight=config["critic"]["max_weight"]) if critic is not None else None)
+            weight = scores["weights"] if scores is not None else None
             context = actor.no_sync() if hasattr(actor, "no_sync") and index + 1 < accumulation else nullcontext()
             with context:
                 losses = actor(batch)
@@ -249,11 +255,25 @@ def optimization_step(config, batches, actor, critic, optimizers, device, *, act
                 _finite_loss(loss, device)
                 (loss / accumulation).backward()
             actor_losses.append(float(loss.detach()))
+            unweighted_losses.append(float(losses.detach().mean()))
             weights_mean.append(float(weight.mean()) if weight is not None else 1.0)
+            if scores is not None:
+                advantage = scores["advantage"].double()
+                advantages_mean.append(float(advantage.mean()))
+                advantages_second_moment.append(float(advantage.square().mean()))
+                weights_second_moment.append(float(weight.double().square().mean()))
+                clipped.append(float((config["critic"]["beta"] * advantage >=
+                                      math.log(config["critic"]["max_weight"])).double().mean()))
         parameters = [parameter for parameter in actor.parameters() if parameter.requires_grad]
         metrics["actor_grad_norm"] = _finite_step(optimizer, parameters, cfg["grad_clip"], device)
-        metrics.update(actor_loss=sum(actor_losses) / accumulation, learning_rate=lr,
+        metrics.update(actor_loss=sum(actor_losses) / accumulation,
+                       unweighted_actor_loss=sum(unweighted_losses) / accumulation, learning_rate=lr,
                        actor_weight_mean=sum(weights_mean) / accumulation)
+        if advantages_mean:
+            metrics.update(advantage_mean=sum(advantages_mean) / accumulation,
+                advantage_second_moment=sum(advantages_second_moment) / accumulation,
+                actor_weight_second_moment=sum(weights_second_moment) / accumulation,
+                actor_weight_clip_fraction=sum(clipped) / accumulation)
     return metrics
 
 
@@ -407,6 +427,9 @@ def _train(config, data_root, device, resume, stopping):
         if config["method"] != "critic":
             from .pi05_assets import checkpoint_identity
             identity = checkpoint_identity(config["model"]["checkpoint"])
+        from .actor_init import inspect_actor_init_policy
+        actor_initialization = inspect_actor_init_policy(config["model"]["actor_init_policy"],
+            identity=identity, model_config=config["model"])
         normalization, initialization = None, None
         if config["critic"]["init_checkpoint"]:
             metadata = read_critic_metadata(config["critic"]["init_checkpoint"],
@@ -424,7 +447,8 @@ def _train(config, data_root, device, resume, stopping):
         cache, reused = build_replay_cache(data_root, Path(config["cache_dir"]), config, norm_stats=normalization)
         return {"cache": str(cache), "cache_reused": reused, "dataset_sha256": info["dataset_sha256"],
                 "train_count": info["train_count"], "val_count": info["val_count"], "model_identity": identity,
-                **_split_report(info), "critic_initialization": initialization}
+                **_split_report(info), "critic_initialization": initialization,
+                "actor_initialization": actor_initialization}
 
     prepared = primary_call(prepare)
     dataset = CachedReplayDataset(prepared["cache"], split="train")
@@ -449,6 +473,9 @@ def _train(config, data_root, device, resume, stopping):
     if config["method"] != "critic":
         from .policy import load_policy
         actor = load_policy(config["model"], device, verified_identity=prepared["model_identity"])
+        if not resume and prepared["actor_initialization"] is not None:
+            from .actor_init import initialize_actor_from_policy
+            all_rank_call(lambda: initialize_actor_from_policy(actor, prepared["actor_initialization"]))
         actor = wrap(actor, device, unused=True, move_inputs=False,
                      gradient_as_bucket_view=config["distributed"]["gradient_as_bucket_view"])
         optimizers["actor"] = OptimizerGroup(actor.parameters(), zero=cfg["zero_optimizer"],
@@ -481,8 +508,10 @@ def _train(config, data_root, device, resume, stopping):
                 "cache_fingerprint": dataset.metadata["fingerprint"], "world_size": world_size(),
                 "model_identity_sha256": stable_hash(prepared["model_identity"]),
                 "critic_initialization_sha256": stable_hash(prepared["critic_initialization"]),
+                "actor_initialization_sha256": stable_hash(prepared["actor_initialization"]),
                 "termination_rule": config["reward"]["termination_rule"], **plan}
     metadata = {"method": config["method"], "model_identity": prepared["model_identity"],
+                "actor_initialization": prepared["actor_initialization"],
                 "model_settings": unwrap(actor).settings if actor is not None else None,
                 "dataset_sha256": prepared["dataset_sha256"], "reward_sha256": stable_hash(config["reward"]),
                 "best_metric": None, "best_update": None, "best_critic_export": None,
@@ -590,6 +619,17 @@ def _train(config, data_root, device, resume, stopping):
             duration = time.perf_counter() - begin
             metrics["data_wait_seconds"] = data_wait
             metrics = reduce_metrics(metrics, device)
+            # Equal per-rank/per-microbatch sample counts make reduced raw
+            # moments exact for the complete effective batch, rather than an
+            # average of per-rank standard deviations or effective sizes.
+            if "advantage_second_moment" in metrics:
+                second = metrics.pop("advantage_second_moment")
+                metrics["advantage_std"] = math.sqrt(max(0.0, second - metrics["advantage_mean"] ** 2))
+                weight_second = metrics.pop("actor_weight_second_moment")
+                metrics["actor_weight_effective_sample_size"] = (
+                    min(plan["global_batch_size"],
+                        plan["global_batch_size"] * metrics["actor_weight_mean"] ** 2 / weight_second)
+                    if weight_second > 0 else 0.0)
             slow = torch.tensor([duration, torch.cuda.max_memory_allocated(device) / 1024 ** 3
                                  if device.type == "cuda" else 0.0], device=device, dtype=torch.float64)
             if active():
@@ -693,6 +733,7 @@ def _train(config, data_root, device, resume, stopping):
                    "last_bc_validation_loss": metadata.get("last_bc_validation_loss"),
                    "last_bc_validation_update": metadata.get("last_bc_validation_update"),
                    "critic_initialization": prepared["critic_initialization"],
+                   "actor_initialization": prepared["actor_initialization"],
                    "memory_metrics": memory_peaks, "checkpoint_format": cfg["checkpoint_format"],
                    "elapsed_seconds": time.perf_counter() - started}
         primary_call(lambda: atomic_json(run_dir / "summary.json", summary))

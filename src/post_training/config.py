@@ -15,7 +15,7 @@ DEFAULTS = {
     "cache_dir": "cache",
     "model": {"checkpoint": "models/pi05_liberox_torch", "backbone": "frozen",
               "dtype": "bfloat16", "num_inference_steps": 10,
-              "vision_gradient_checkpointing": False},
+              "vision_gradient_checkpointing": False, "actor_init_policy": None},
     "data": {"action_horizon": 8, "action_dim": 7, "proprio_dim": 8,
              "include_post_success": False, "image_flip_vertical": True,
              "image_flip_horizontal": False, "validation_fraction": 0.2, "seed": 7,
@@ -85,6 +85,12 @@ def validate_config(c):
             raise ValueError(f"{field} must be a nonempty path string")
     if c["model"]["backbone"] not in {"frozen", "full"}:
         raise ValueError("model.backbone must be frozen or full")
+    actor_init = c["model"]["actor_init_policy"]
+    if actor_init is not None:
+        if not isinstance(actor_init, str) or not actor_init.strip():
+            raise ValueError("model.actor_init_policy must be a nonempty policy package path or null")
+        if c["method"] != "iql" or c["model"]["backbone"] != "full":
+            raise ValueError("model.actor_init_policy requires full IQL training")
     if c["model"]["vision_gradient_checkpointing"] and c["model"]["backbone"] != "full":
         raise ValueError("model.vision_gradient_checkpointing requires full backbone training")
     if c["model"]["dtype"] not in {"float32", "bfloat16"}:
