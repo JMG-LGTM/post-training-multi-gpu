@@ -29,7 +29,7 @@ DEFAULTS = {
                  "validation_interval": 500, "bc_validation": False,
                  "validation_batch_size": None, "validation_seed": 17007, "tensorboard": True,
                  "zero_optimizer": True, "adamw_foreach": None,
-                 "sampling": "shuffle", "deterministic": False},
+                 "sampling": "shuffle", "deterministic": False, "continuation": None},
     "critic": {"image_size": 128, "learning_rate": 3e-4, "value_learning_rate": 3e-4,
                "optimizer": "adamw", "weight_decay": 0.01, "grad_clip": 10.0, "expectile": 0.8, "tau": 0.005,
                "beta": 3.0, "max_weight": 20.0, "random_shift_pad": 4,
@@ -177,6 +177,8 @@ def validate_config(c):
         raise ValueError("BC does not use critic.init_checkpoint")
     if c["method"] != "iql" and c["critic"]["warmup_updates"]:
         raise ValueError("critic.warmup_updates only applies to IQL")
+    from .continuation import validate_continuation
+    validate_continuation(c)
 
 
 def batch_plan(c, world_size):

@@ -269,6 +269,8 @@ def optimization_step(config, batches, actor, critic, optimizers, device, *, act
         optimizer = optimizers["actor"]
         lr = actor_learning_rate(actor_update, cfg["optimizer_updates"], cfg["learning_rate"],
                                  cfg["final_learning_rate"], cfg["warmup_updates"])
+        from .continuation import actor_rate
+        lr = actor_rate(config, actor_update, lr)
         for group in optimizer.param_groups:
             group["lr"] = lr
         optimizer.zero_grad()
@@ -457,6 +459,8 @@ def _best_export_name(run_dir, update):
 
 
 def _train(config, data_root, device, resume, stopping):
+    from .continuation import (check_resume_location, comparable_config, prepare_donor_load,
+                               SOURCE_UPDATE)
     from .critic import default_input_spec, export_critic, load_critic, read_critic_metadata
     from .data import inspect_dataset
     from .diagnostics import evaluate_critic
@@ -468,10 +472,11 @@ def _train(config, data_root, device, resume, stopping):
 
     def prepare():
         if resume:
-            if Path(resume).absolute().parent.resolve().parent != run_dir:
-                raise ValueError("Resume in the original output_dir so logs and best-checkpoint selection remain connected")
+            check_resume_location(config, resume)
         elif run_dir.exists() and any(run_dir.iterdir()):
             raise FileExistsError("output_dir is not empty; use a fresh directory or --resume")
+        elif config["training"].get("continuation") is not None:
+            raise ValueError("Continuation requires the complete bound checkpoint through --resume")
         info = inspect_dataset(data_root, config, verify=True)
         if not info["train_count"] or ((info["critic_evaluation"]["held_out"] or cfg["bc_validation"]) and not info["val_count"]):
             raise ValueError("Training/validation split is empty")
@@ -556,9 +561,7 @@ def _train(config, data_root, device, resume, stopping):
 
     effective = copy.deepcopy(config)
     effective["training"]["gradient_accumulation_steps"] = plan["gradient_accumulation_steps"]
-    comparable = copy.deepcopy(effective)
-    for key in ("output_dir", "cache_dir"):
-        comparable.pop(key)
+    comparable = comparable_config(effective)
     # Conservative exact resume: retain schedule, world size, sampling and all math settings.
     contract = {"config_sha256": stable_hash(comparable), "dataset_sha256": prepared["dataset_sha256"],
                 "cache_fingerprint": dataset.metadata["fingerprint"], "world_size": world_size(),
@@ -572,6 +575,8 @@ def _train(config, data_root, device, resume, stopping):
                 "actor_bc_per_device_batch_size": (config["actor_bc"]["per_device_batch_size"]
                                                    if prepared["actor_bc_auxiliary"] is not None else 0),
                 "termination_rule": config["reward"]["termination_rule"], **plan}
+    if cfg.get("continuation") is not None:
+        contract["continuation"] = copy.deepcopy(cfg["continuation"])
     metadata = {"method": config["method"], "model_identity": prepared["model_identity"],
                 "actor_initialization": prepared["actor_initialization"],
                 "actor_bc_auxiliary": prepared["actor_bc_auxiliary"],
@@ -583,8 +588,13 @@ def _train(config, data_root, device, resume, stopping):
                 "last_diagnostic_metric": None, "last_diagnostic_update": None}
     start = 0
     if resume:
+        external_donor = check_resume_location(config, resume)
+        load_contract = (primary_call(lambda: prepare_donor_load(config, resume, contract))
+                         if external_donor else contract)
         start, metadata = load_checkpoint(resume, actor=actor, critic=critic, optimizers=optimizers,
-                                         contract=contract, device=device)
+                                         contract=load_contract, device=device)
+        if external_donor and start != SOURCE_UPDATE:
+            raise ValueError("Continuation donor did not restore update30000")
     else:
         random.seed(cfg["seed"] + rank())
         np.random.seed(cfg["seed"] + rank())
@@ -607,6 +617,11 @@ def _train(config, data_root, device, resume, stopping):
                       "weight_decay": optimizers["q"].param_groups[0]["weight_decay"]} if critic is not None else None),
                   "model_parameters": unwrap(actor).parameter_counts() if actor is not None else None,
                   "sample_count_unit": "draws_including_repeated_samples", "contract": contract}
+    if cfg.get("continuation") is not None:
+        provenance["continuation"] = {**copy.deepcopy(cfg["continuation"]),
+            "resumed_update": start, "actor_learning_rate": cfg["final_learning_rate"],
+            "restored_actor_critic_optimizers_rng": True,
+            "source_checkpoint_rewritten": False}
     provenance["actor_evaluation"] = {"enabled": cfg["bc_validation"], "held_out": cfg["bc_validation"],
         "split": "val" if cfg["bc_validation"] else None, "interval": cfg["validation_interval"],
         "seed": cfg["validation_seed"], "batch_size": cfg["validation_batch_size"] or cfg["per_device_batch_size"],
