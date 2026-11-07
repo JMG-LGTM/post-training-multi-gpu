@@ -1,0 +1,38 @@
+# Generic example; replace native and preference packages with verified inputs.
+# A separate experiment file can bind an original behavior policy and split roster.
+schema_version: 1
+method: critic
+output_dir: outputs/idql_preference
+cache_dir: cache
+data:
+  validation_fraction: 0.2
+  seed: 7
+  split_strategy: haizhou_hash_threshold
+training:
+  optimizer_updates: 30000
+  global_batch_size: 64
+  per_device_batch_size: 32
+  gradient_accumulation_steps: 1
+  seed: 7
+  warmup_updates: 0
+  checkpoint_interval: 2500
+  checkpoint_format: sharded
+  validation_interval: 500
+  log_interval: 25
+  sampling: replacement
+critic:
+  init_checkpoint: null
+  learning_rate: 0.0003
+  value_learning_rate: 0.0003
+  expectile: 0.8
+  tau: 0.005
+  random_shift_pad: 4
+preference:
+  package: data/same_state_preferences
+  weight: 0.1
+  temperature: 1.0
+  global_batch_size: 16
+  per_device_batch_size: 8
+  frozen_split_members: null
+  behavior_policy_id: null
+  behavior_actor_sha256: null

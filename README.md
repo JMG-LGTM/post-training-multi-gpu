@@ -19,6 +19,46 @@ not yet been validated. Run the policy smoke configurations before long training
 BC and critic provide the two parts of a future IDQL system. Sampling candidate
 actions and selecting with Q at inference time is outside this release.
 
+An independent experimental entry point, `train_preference_idql.py`, adds
+same-state action preferences to the twin-Q scorer while leaving the behavior
+policy frozen. It uses `TD loss + preference_weight * pairwise ranking loss`,
+with a weight-zero control. This is a preference-regularized critic, not
+FlowPRO/RPRO actor training. Dataset identities, optional behavior-policy
+identity, split membership, pair sources and budgets are configuration inputs;
+there are no Scene24 identifiers or fixed numbers of examples in the algorithm.
+See [IDQL_PREFERENCE.md](docs/IDQL_PREFERENCE.md) for the data contract, controlled
+comparison and the existing pi0.5 LIBERO-X V1 raw-input adapter limits.
+
+```bash
+# Package already aligned pairs; this never invents preference labels.
+python scripts/package_preferences.py --manifest paired-input/manifest.json \
+  --output data/same_state_preferences
+
+# Example budgets target two GPUs; adapt per-device batches for other world sizes.
+torchrun --standalone --nproc_per_node=2 train_preference_idql.py \
+  --config configs/preference/idql.yaml --data data/native_transitions \
+  --preferences data/same_state_preferences --dry-run
+torchrun --standalone --nproc_per_node=2 train_preference_idql.py \
+  --config configs/preference/idql.yaml --data data/native_transitions \
+  --preferences data/same_state_preferences
+
+# Independent matched control; preference weight is zero and no pairs are read.
+torchrun --standalone --nproc_per_node=2 train_preference_idql.py \
+  --config configs/preference/control.yaml --data data/native_transitions
+
+# Plotting is optional and runs on CPU; install the plot extra in its environment.
+python -m pip install -e '.[plot]'
+python scripts/plot_preference_metrics.py outputs/idql_preference
+```
+
+The scorer path creates no actor optimizer and never loads OpenPI or behavior
+weights. Its declared behavior-policy identity is provenance for later inference,
+not evidence that those weights were loaded during critic training. Exact resume
+binds native data, preference data, the complete native root roster, configuration,
+source files and optimizer/RNG state. Preserve all checkpoint files and referenced
+critic exports when archiving. A real GPU smoke and paired rollout evaluation
+remain separate from CPU numerical, distributed and resume checks.
+
 ## 1. Environment
 
 Use Linux, Python **3.11**, and a dedicated environment. The policy stack is
