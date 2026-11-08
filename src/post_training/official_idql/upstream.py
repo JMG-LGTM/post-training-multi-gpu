@@ -138,6 +138,12 @@ def load_pixel_encoder() -> type:
     ).D4PGEncoder
 
 
+def load_augmentations() -> ModuleType:
+    """Return the real author DrQ crop implementation, without source edits."""
+    load_upstream()
+    return importlib.import_module(f"{_NAMESPACE}.agents.drq.augmentations")
+
+
 def source_receipt() -> dict:
     manifest = verify_upstream()
     return {

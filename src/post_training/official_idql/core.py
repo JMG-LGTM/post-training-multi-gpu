@@ -20,11 +20,12 @@ import jax.numpy as jnp
 import numpy as np
 import optax
 
-from .upstream import load_networks, load_pixel_encoder, load_upstream
+from .upstream import load_augmentations, load_networks, load_pixel_encoder, load_upstream
 
 
 _OFFICIAL = load_upstream()
 _NETWORKS = load_networks()
+_AUGMENTATIONS = load_augmentations()
 
 
 class SynchronizedTrainState(TrainState):
@@ -51,6 +52,7 @@ class CriticAgent(struct.PyTreeNode):
     observation_kind: str = struct.field(pytree_node=False)
     pixel_keys: tuple[str, ...] = struct.field(pytree_node=False)
     action_dim: int = struct.field(pytree_node=False)
+    augmentation_pad: int = struct.field(pytree_node=False)
 
     # These are the *same function objects* read from unmodified author source.
     update_v = _OFFICIAL.DDPMIQLLearner.update_v
@@ -98,6 +100,7 @@ def create_agent(
     encoder_filters: Sequence[int] = (3, 3, 3, 3),
     encoder_strides: Sequence[int] = (2, 1, 1, 1),
     latent_dim: int = 50,
+    augmentation_pad: int = 0,
 ) -> CriticAgent:
     """Initialize Q/V from unbatched samples, matching official split-four keys.
 
@@ -107,6 +110,11 @@ def create_agent(
     """
     if observation_kind not in {"vector", "pixels"}:
         raise ValueError("observation_kind must explicitly be 'vector' or 'pixels'")
+    if isinstance(augmentation_pad, (bool, np.bool_)) or not isinstance(augmentation_pad, Integral) or augmentation_pad < 0:
+        raise ValueError("augmentation_pad must be a nonnegative integer")
+    augmentation_pad = int(augmentation_pad)
+    if observation_kind != "pixels" and augmentation_pad:
+        raise ValueError("Random crop augmentation requires explicit pixels mode")
     scalars = (critic_lr, value_lr, expectile, discount, tau)
     if any(isinstance(x, (bool, np.bool_)) or not isinstance(x, Real) or not np.isfinite(x) for x in scalars):
         raise ValueError("IDQL scalar parameters must be finite real numbers")
@@ -198,15 +206,42 @@ def create_agent(
         discount=discount, tau=tau, critic_hyperparam=expectile,
         step=jnp.asarray(0, dtype=jnp.int32), axis_name=axis_name,
         observation_kind=observation_kind, pixel_keys=pixel_keys, action_dim=action_sample.shape[0],
+        augmentation_pad=augmentation_pad,
     )
+
+
+def _augment_training_batch(agent: CriticAgent, batch):
+    """Return a fresh batch with author DrQ crops and its advanced agent RNG.
+
+    Current/next images and every camera each receive a separate key. Under
+    pmap, fold the device index into the saved RNG before those splits so equal
+    observations on different devices do not receive identical augmentations.
+    Each enabled update saves the final key; checkpoint resume reproduces the
+    local stream exactly. Pad zero never splits or otherwise changes the RNG.
+    """
+    prepared = dict(batch)
+    for field in ("observations", "next_observations"):
+        prepared[field] = _observations(agent, batch[field])
+    if not agent.augmentation_pad:
+        return agent, prepared
+    rng = agent.rng
+    if agent.axis_name is not None:
+        rng = jax.random.fold_in(rng, jax.lax.axis_index(agent.axis_name))
+    for field in ("observations", "next_observations"):
+        observations = prepared[field]
+        for pixel_key in agent.pixel_keys:
+            key, rng = jax.random.split(rng)
+            observations = _AUGMENTATIONS.batched_random_crop(
+                key, observations, pixel_key, padding=agent.augmentation_pad
+            )
+        prepared[field] = observations
+    return agent.replace(rng=rng), prepared
 
 
 @jax.jit
 def update(agent: CriticAgent, batch):
     """Run original V, then original Q/target update; synchronize before Adam."""
-    prepared = dict(batch)
-    prepared["observations"] = _observations(agent, batch["observations"])
-    prepared["next_observations"] = _observations(agent, batch["next_observations"])
+    agent, prepared = _augment_training_batch(agent, batch)
     agent, v_info = agent.update_v(prepared)
     agent, q_info = agent.update_q(prepared)
     agent = agent.replace(step=agent.step + 1)
@@ -222,6 +257,27 @@ def update(agent: CriticAgent, batch):
         finite = jax.lax.pmin(finite.astype(jnp.int32), axis_name=agent.axis_name).astype(jnp.bool_)
     info = {**info, "finite": finite, "updates": agent.step}
     return agent, info
+
+
+@jax.jit
+def evaluate_outputs(agent: CriticAgent, batch):
+    """Per-sample online Q, target Q and V on original, unaugmented inputs.
+
+    This read-only diagnostic never consumes the training RNG, even when the
+    agent was created with random crops enabled. All arrays have shape [B].
+    """
+    observations = _observations(agent, batch["observations"])
+    actions = batch["actions"]
+    online = agent.critic.apply_fn({"params": agent.critic.params}, observations, actions)
+    targets = agent.target_critic.apply_fn(
+        {"params": agent.target_critic.params}, observations, actions
+    )
+    values = agent.value.apply_fn({"params": agent.value.params}, observations)
+    return {
+        "q1": online[0], "q2": online[1], "q_min": online.min(axis=0),
+        "target_q1": targets[0], "target_q2": targets[1],
+        "target_q_min": targets.min(axis=0), "v": values,
+    }
 
 
 @jax.jit

@@ -29,7 +29,7 @@ def native(tmp_path):
 def configuration(tmp_path):
     config=runner.load_config(Path(__file__).parents[1]/'configs/official_idql/idql_official_vector_cpu.yaml')
     config.update(output_dir=str(tmp_path/'run'),cache_dir=str(tmp_path/'cache'))
-    config['training'].update(optimizer_updates=4,checkpoint_interval=2,validation_interval=2)
+    config['training'].update(optimizer_updates=4,checkpoint_interval=2,validation_interval=3)
     return config
 
 
@@ -50,6 +50,22 @@ def test_actual_native_cpu_train_stop_resume_export_and_frozen_root_members(nati
     final=runner.train(config,native,resume=stopped['checkpoint'])
     assert final['status']=='COMPLETED' and final['optimizer_updates']==4 and final['sample_draws']==16
     assert final['actor_optimizer_updates']==0
+    # These real native fixtures have no verified same-state action pairs.
+    # Good loss or a later checkpoint must never manufacture qualification.
+    assert final['selected_scorer'] is None
+    assert final['selection']['status']=='NO_QUALIFIED_SCORER'
+    assert final['selection']['policy']['fallback_to_last'] is False
+    assert [item['optimizer_update'] for item in final['selection']['retained_candidates']]==[2,4]
+    assert all(item['status']!='QUALIFIED' for item in final['selection']['retained_candidates'])
+    control=json.loads((Path(final['checkpoint'])/'control.json').read_text())
+    assert control['metadata']['selection']==final['selection']
+    assert json.loads((tmp_path/'run/selection.json').read_text())==final['selection']
+    assert sorted(p.name for p in (tmp_path/'run/validation').glob('update_*.json'))==[
+        f'update_{i:08d}.json' for i in [2,3,4]]
+    for update in [2,3,4]:
+        evidence=json.loads((tmp_path/'run/validation'/f'update_{update:08d}.json').read_text())
+        assert evidence['optimizer_update']==update and evidence['held_out'] is True and evidence['updated'] is False
+        assert evidence['diagnostics']['gates']['eligible_for_idql_evaluation'] is False
     assert not (tmp_path/'run/stop.request').exists()
     left=serialization.msgpack_restore((Path(expected['checkpoint'])/'state.msgpack').read_bytes())
     right=serialization.msgpack_restore((Path(final['checkpoint'])/'state.msgpack').read_bytes())
@@ -64,6 +80,7 @@ def test_actual_native_cpu_train_stop_resume_export_and_frozen_root_members(nati
     assert (tmp_path/'run/metrics.jsonl').read_bytes()==original
     complete=runner.train(config,native,resume=final['checkpoint'])
     assert complete['already_complete_no_parameter_update'] is True
+    assert complete['selected_scorer'] is None and complete['selection']==final['selection']
     assert (tmp_path/'run/metrics.jsonl').read_bytes()==original
 
 
@@ -147,3 +164,53 @@ assert (Path(c['output_dir'])/'scorers/update_00000004/manifest.json').is_file()
              'XLA_FLAGS':flags+' --xla_force_host_platform_device_count=2'},
         capture_output=True,text=True,timeout=90)
     assert result.returncode==0,result.stdout+result.stderr
+
+
+def _synthetic_selection_evidence(agent,adapter,*args,**kwargs):
+    """Control-flow fixture only: no claim these toy trajectories pass a gate."""
+    update=int(np.asarray(agent.step).flat[0]);passed=update!=4
+    rho=-.8 if update==2 else -.95
+    return dict(optimizer_update=update,count=len(adapter),held_out=True,updated=False,
+        critic_loss=.1 if passed else .00001,value_loss=.2,q1_mse=.1,q2_mse=.1,
+        diagnostics=dict(finite=True,spearman_v_remaining_blocks=rho,median_per_trajectory_spearman=-.8,
+            ess_fraction=.8,success_terminal_weight_share=.1,
+            human_comparison=dict(human_higher_fraction=.9 if passed else .45),
+            same_state_action_ranking=dict(human_higher_fraction=.8,available=True,evidence_verified=True,
+                held_out=True,finite=True,pair_count=2,root_count=2),
+            gates=dict(progress_passed=True,human_passed=passed,same_state_passed=True,
+                ess_passed=True,terminal_mass_passed=True,eligible_for_idql_evaluation=passed,
+                failures=[] if passed else ['human_higher_fraction'],unavailable=[])))
+
+
+def test_best_selection_survives_resume_and_failed_later_lower_td_checkpoint(native,tmp_path,monkeypatch):
+    """Exercise real model/CP I/O with synthetic gate results, not model quality."""
+    config=configuration(tmp_path);config['training']['validation_interval']=1
+    monkeypatch.setattr(runner,'evaluate',_synthetic_selection_evidence)
+    stopped=runner.train(config,native,stop_after=2)
+    best=stopped['selected_scorer']
+    assert best['optimizer_update']==2
+    assert [v['optimizer_update'] for v in stopped['selection']['retained_candidates']]==[2]
+    # A validation-only update1 can have better rho but is not a retained full CP.
+    assert stopped['selection']['best_qualified_scorer']['optimizer_update']!=1
+    stored=json.loads((Path(stopped['checkpoint'])/'control.json').read_text())['metadata']['selection']
+    assert stored==stopped['selection']
+    # CP metadata is the recovery authority even if the derived sidecar is gone.
+    (tmp_path/'run/selection.json').unlink()
+    final=runner.train(config,native,resume=stopped['checkpoint'])
+    assert final['selected_scorer']==best
+    assert final['selected_scorer']['optimizer_update']==2
+    assert final['selection']['best_progress_candidate']['optimizer_update']==4
+    assert [v['optimizer_update'] for v in final['selection']['retained_candidates']]==[2,4]
+    assert json.loads((tmp_path/'run/selection.json').read_text())==final['selection']
+    assert json.loads((Path(final['checkpoint'])/'control.json').read_text())['metadata']['selection']==final['selection']
+    assert sorted(p.name for p in (tmp_path/'run/validation').glob('update_*.json'))==[f'update_{i:08d}.json' for i in range(1,5)]
+
+
+def test_resume_cannot_change_quality_thresholds_or_rewrite_history(native,tmp_path):
+    config=configuration(tmp_path);stopped=runner.train(config,native,stop_after=2)
+    history=(tmp_path/'run/metrics.jsonl').read_bytes();selection=(tmp_path/'run/selection.json').read_bytes()
+    changed=deepcopy(config);changed['diagnostics']['thresholds']['rho_max']=-.6
+    with pytest.raises(ValueError,match='contract'):
+        runner.train(changed,native,resume=stopped['checkpoint'])
+    assert (tmp_path/'run/metrics.jsonl').read_bytes()==history
+    assert (tmp_path/'run/selection.json').read_bytes()==selection

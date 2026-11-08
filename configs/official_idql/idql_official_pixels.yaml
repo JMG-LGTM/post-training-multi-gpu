@@ -13,8 +13,10 @@ adapter:
     encoder_filters: [3, 3, 3, 3]
     encoder_strides: [2, 1, 1, 1]
     latent_dim: 50
+    # Original upstream batched_random_crop; train only, independent cameras/ranks.
+    random_crop_pad: 4
 data:
-  image_size: 128
+  image_size: 64
   validation_fraction: 0.2
   seed: 7
   split_strategy: haizhou_hash_threshold
@@ -37,6 +39,18 @@ critic:
   value_lr: 0.0003
   expectile: 0.7
   tau: 0.005
+diagnostics:
+  beta: 3.0
+  max_weight: 20.0
+  # Verified native same-state human/original-failure pairs; never infer from progress.
+  same_state_pairs: null
+  thresholds:
+    rho_max: -0.5
+    trajectory_median_max: -0.3
+    human_higher_fraction_min: 0.5
+    same_state_higher_fraction_min: 0.5
+    ess_fraction_min: 0.1
+    success_terminal_weight_share_max: 0.5
 runtime:
   platform: gpu
   device_count: 2
