@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Train a preference-regularized Q/V scorer, without loading a behavior actor."""
+"""Train the custom PixelIQL preference scorer, not author-official IDQL.
+
+This legacy experiment has no behavior actor optimizer and does not use the
+separate official JAX core in train_idql_official.py.
+"""
 from __future__ import annotations
 
 import argparse

@@ -1,5 +1,16 @@
 # pi0.5 post-training on 1–8 GPUs
 
+**IDQL implementation correction:** `train.py --method critic` and
+`train_preference_idql.py` use the repository's custom PyTorch PixelIQL networks.
+They are **not the IDQL authors' implementation**, and their checks/results do
+not establish agreement with the author code. The separate
+`train_idql_official.py` entry point executes the pinned authors' JAX Q/V
+functions and networks. See [OFFICIAL_IDQL.md](docs/OFFICIAL_IDQL.md) for source
+identity, multi-device execution, explicit domain adapters and verification.
+This new path does not add preferences or update the behavior actor. Its vision,
+action-chunk and pi0.5 integration must be reported as adaptations, not as a
+complete reproduction of the original DDPM experiments.
+
 Standalone BC, IQL and Q/V-only training for 1–8 GPUs, with configurations
 targeting one 8 × H20 96 GB server. All commands are noninteractive. Portable
 dataset packages let training run independently of the data collection platform.
@@ -16,8 +27,9 @@ not yet been validated. Run the policy smoke configurations before long training
 | `iql` | V, twin Q, target Q, advantage-weighted policy | Pinned pi0.5 base |
 | `critic` | V, twin Q and target Q only | None; no OpenPI or model weights |
 
-BC and critic provide the two parts of a future IDQL system. Sampling candidate
-actions and selecting with Q at inference time is outside this release.
+The legacy BC and custom PixelIQL critic paths remain available under their
+original names. Use the separate official-backed path for author-source IDQL
+Q/V work; it never falls back to these PyTorch networks or loads their weights.
 
 An independent experimental entry point, `train_preference_idql.py`, adds
 same-state action preferences to the twin-Q scorer while leaving the behavior

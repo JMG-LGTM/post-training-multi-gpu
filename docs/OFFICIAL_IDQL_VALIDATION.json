@@ -1,0 +1,310 @@
+{
+  "schema_version": 1,
+  "status": "PASS_CPU_REVIEW_CANDIDATE_GPU_NOT_VALIDATED",
+  "observed_at": "2026-11-08T12:44:45.289016+00:00",
+  "upstream_commit": "7582571ce686c77b4ee0f592dd639ab8151295fa",
+  "full_repository_cpu_suite": {
+    "tests": 347,
+    "errors": 0,
+    "failures": 0,
+    "skipped": 0,
+    "duration_seconds": 115.015,
+    "command": "CUDA_VISIBLE_DEVICES='' JAX_PLATFORMS=cpu XLA_FLAGS=--xla_force_host_platform_device_count=2 OMP_NUM_THREADS=2 OPENBLAS_NUM_THREADS=1 taskset -c 0-15 .venv/bin/python -B -m pytest -q --junitxml=reports/official_idql_full_suite.xml",
+    "junit_sha256": "a46939d30952e8bb57fb5293ab449b62e668b17c3741ed021efab388b8e50cf3"
+  },
+  "independent_numerical_suite": {
+    "tests": {
+      "tests": 8,
+      "errors": 0,
+      "failures": 0,
+      "skipped": 0
+    },
+    "source_files_sha256": {
+      "configs/official_idql/idql_official_pixels.yaml": "1cdd86efb0e148b2a91eeba748a69e9cbe1cd7d8da2e6dbee969412b7baabd59",
+      "configs/official_idql/idql_official_vector_cpu.yaml": "ce6d1176d5cb3813ee50e907b9610378fd2b0bc738bd2d657a262ddf4a442da7",
+      "scripts/plot_official_idql_metrics.py": "c8ec94ec17048eb73b63b506eca25ff5a98608e7906c0dcd106e8951fe81cb84",
+      "src/post_training/_vendor/idql_official/UPSTREAM.json": "fe478e2e6373f6c17d449d572f754e604448a1d06aae70f4040b13a586538769",
+      "src/post_training/official_idql/__init__.py": "ed8dc86f0bbdb469414248fa78128b001898356c5121899ba252dbba5199ec86",
+      "src/post_training/official_idql/adapters.py": "2fd141bf205d72c5dd3e66c49eb6090e58abbc65bc3eef5a05d03dc7492c97d4",
+      "src/post_training/official_idql/checkpoint.py": "638b103bef00e72d55b880d7c238c3704e3c0b2a26b1c3b60f4ab82f92496586",
+      "src/post_training/official_idql/core.py": "5a1534b6f9ee423334c0c6eb62b4ed2fca4b194ca8f04ccdeb5b816f4b871acf",
+      "src/post_training/official_idql/runner.py": "971302ad825351e1818869596645f3c9c4ce141ecd8e64f0f0a5da40029097f9",
+      "src/post_training/official_idql/scoring.py": "d03f5ffa0d3803f066dab57d0c3b55ed61db63b25c04bd3d7095345d51efcc3d",
+      "src/post_training/official_idql/upstream.py": "ba0e8de08697eb95072aaf2ae3b3544509bca7836f44b5c99cab3b21fa37a1bd",
+      "tests/test_official_idql_core.py": "3e617f15f4b847dcff309157fdace7ba0c6ee0ee20eda265e764bb3ccf6dcf4a",
+      "tools/verify_official_idql.py": "ec6de37e4a0251539cfe25b4da8d9860f5dec6b2b8bacedb3346e45cbf987408",
+      "train_idql_official.py": "0a88b030bd8dfaa8496e3d8b870764866e64e6b487709e2fe117e5ba59b286bd"
+    },
+    "source_files_unchanged_during_verification": true,
+    "measurements": {
+      "devices": [
+        {
+          "platform": "cpu",
+          "id": 0,
+          "kind": "cpu"
+        },
+        {
+          "platform": "cpu",
+          "id": 1,
+          "kind": "cpu"
+        }
+      ],
+      "cpu_affinity": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "versions": {
+        "jax": "0.5.3",
+        "jaxlib": "0.5.3",
+        "flax": "0.10.2",
+        "optax": "0.2.4",
+        "gym": "0.26.2",
+        "numpy": "1.26.4",
+        "pytest": "8.4.2"
+      },
+      "upstream_commit": "7582571ce686c77b4ee0f592dd639ab8151295fa",
+      "reference_execution": {
+        "constructor": "unmodified DDPMIQLLearner.create",
+        "update": "unmodified DDPMIQLLearner.critic_update with its original @jax.jit",
+        "separate_eager_update_v_then_update_q": "diagnostic only; different XLA fusion boundaries are not the official compiled reference"
+      },
+      "tolerance": {
+        "absolute": 2e-06,
+        "relative": 2e-05,
+        "initialization_and_checkpoint_absolute": 0.0
+      },
+      "source_identity": {
+        "files_sha256": {
+          "jaxrl5/agents/ddpm_iql_simple/ddpm_iql_learner.py": "8dc87a85e5f5720c493556df8ec3be489786a34db9e989bebc9b96eeae27566f",
+          "jaxrl5/networks/ensemble.py": "3d7e92028b0193fb806554edc226694dfcf177904f5f78a7f42559d381415d5e",
+          "jaxrl5/networks/mlp.py": "e90a14f82ddc819397a7d7dc7dc4b93d5366d04f13f64eceea5aeef7677b69d8",
+          "jaxrl5/networks/state_action_value.py": "eec608a5d535afc57116a46fedb24897edcaacd1581eba51592a5d42248c1779",
+          "jaxrl5/networks/state_value.py": "6da0dc238a15b48d3f7f6484f191f9001bf4d6316b4a141406f26a5b053fc4ad",
+          "jaxrl5/networks/pixel_multiplexer.py": "324c8c13cbe2c85e19587f7d76e3bedf268de7c0907cadd454872365df39cbfb",
+          "jaxrl5/agents/agent.py": "38cdfa470c4f78161e3011a77d5ba80c86c88ff2c8ab7fdcf04ceeaee05cbb63",
+          "jaxrl5/networks/diffusion.py": "ff0e3b01ddb5739e11f17f3a199d3d2faed308680270c17e0f0de062f34dda9a"
+        },
+        "functions_are_upstream_objects": true,
+        "module_file": "/home/JMG/Projects/post-training-multi-gpu-official-idql/src/post_training/_vendor/idql_official/jaxrl5/agents/ddpm_iql_simple/ddpm_iql_learner.py",
+        "all_vendored_files_verified": 80
+      },
+      "official_create_initialization": {
+        "leaves": 54,
+        "max_absolute_error": 0.0
+      },
+      "five_updates_vs_official_full_creator": [
+        {
+          "update": 1,
+          "state": {
+            "leaves": 54,
+            "max_absolute_error": 0.0
+          }
+        },
+        {
+          "update": 2,
+          "state": {
+            "leaves": 54,
+            "max_absolute_error": 0.0
+          }
+        },
+        {
+          "update": 3,
+          "state": {
+            "leaves": 54,
+            "max_absolute_error": 0.0
+          }
+        },
+        {
+          "update": 4,
+          "state": {
+            "leaves": 54,
+            "max_absolute_error": 0.0
+          }
+        },
+        {
+          "update": 5,
+          "state": {
+            "leaves": 54,
+            "max_absolute_error": 0.0
+          }
+        }
+      ],
+      "separate_eager_subcalls_diagnostic_not_equivalence_reference": [
+        {
+          "update": 1,
+          "max_absolute_difference_vs_compiled_official": 4.202127456665039e-06
+        },
+        {
+          "update": 2,
+          "max_absolute_difference_vs_compiled_official": 4.202127456665039e-06
+        },
+        {
+          "update": 3,
+          "max_absolute_difference_vs_compiled_official": 4.202127456665039e-06
+        },
+        {
+          "update": 4,
+          "max_absolute_difference_vs_compiled_official": 4.202127456665039e-06
+        },
+        {
+          "update": 5,
+          "max_absolute_difference_vs_compiled_official": 4.202127456665039e-06
+        }
+      ],
+      "target_q_min_and_single_ema": {
+        "leaves": 6,
+        "max_absolute_error": 1.4901161193847656e-08
+      },
+      "read_only_validation_state_unchanged": true,
+      "nonfinite_adam_rejected_by_update_status": true,
+      "incorrect_average_after_adam_max_error": 0.00030000507831573486,
+      "virtual_cpu2_global64_three_updates": [
+        {
+          "update": 1,
+          "rank0_vs_global64": {
+            "leaves": 54,
+            "max_absolute_error": 3.2782554626464844e-06
+          },
+          "rank1_vs_global64": {
+            "leaves": 54,
+            "max_absolute_error": 3.2782554626464844e-06
+          },
+          "replicas": {
+            "leaves": 54,
+            "max_absolute_error": 0.0
+          }
+        },
+        {
+          "update": 2,
+          "rank0_vs_global64": {
+            "leaves": 54,
+            "max_absolute_error": 3.2782554626464844e-06
+          },
+          "rank1_vs_global64": {
+            "leaves": 54,
+            "max_absolute_error": 3.2782554626464844e-06
+          },
+          "replicas": {
+            "leaves": 54,
+            "max_absolute_error": 0.0
+          }
+        },
+        {
+          "update": 3,
+          "rank0_vs_global64": {
+            "leaves": 54,
+            "max_absolute_error": 3.2782554626464844e-06
+          },
+          "rank1_vs_global64": {
+            "leaves": 54,
+            "max_absolute_error": 3.2782554626464844e-06
+          },
+          "replicas": {
+            "leaves": 54,
+            "max_absolute_error": 0.0
+          }
+        }
+      ],
+      "target_q_candidate_selection": {
+        "candidate_count": 4,
+        "observations": 3,
+        "upstream_compute_q_reference": true,
+        "tie_first_index": true
+      },
+      "checkpoint_resume2_to5": {
+        "at_restore": {
+          "leaves": 54,
+          "max_absolute_error": 0.0
+        },
+        "after_three_more_updates": {
+          "leaves": 54,
+          "max_absolute_error": 0.0
+        },
+        "numpy_sampler_exact": true
+      },
+      "pmap_full_checkpoint_resume2_to5": {
+        "at_restore": {
+          "leaves": 54,
+          "max_absolute_error": 0.0
+        },
+        "after_three_more_updates": {
+          "leaves": 54,
+          "max_absolute_error": 0.0
+        },
+        "numpy_sampler_exact": true,
+        "distinct_device_rngs_restored": true
+      },
+      "explicit_two_camera_pixel_cpu_smoke": {
+        "image_shape": [
+          32,
+          32,
+          3
+        ],
+        "camera_count": 2,
+        "batch_size": 2,
+        "candidates": 4,
+        "critic_updates": 1,
+        "value_updates": 1,
+        "encoders": [
+          "encoder_0",
+          "encoder_1"
+        ],
+        "test_hidden_dims": [
+          16,
+          16
+        ],
+        "test_encoder_features": [
+          4,
+          4,
+          4,
+          4
+        ],
+        "test_latent_dim": 8,
+        "domain_adaptation_not_official_state_network": true,
+        "gpu_validated": false
+      }
+    },
+    "receipt_sha256": "33a3aeba1f87eef8617bd3710cc8bd61440817036ca288b1b2775dc1d11f3c10"
+  },
+  "installed_wheel": {
+    "status": "PASS_INSTALLED_WHEEL_UPSTREAM_AND_CREATE_CPU",
+    "wheel_sha256": "c24c48a1bfa44486903ef6549d6ddfb4fa5588c47b2ca1bb8a037cf0be77a7bb",
+    "wheel_bytes": 200725,
+    "files": 80,
+    "exact_vendor_file_set_verified": true,
+    "generated_bytecode_files": 0,
+    "source_sha256": {
+      "post_training/official_idql/core.py": "5a1534b6f9ee423334c0c6eb62b4ed2fca4b194ca8f04ccdeb5b816f4b871acf",
+      "post_training/official_idql/upstream.py": "ba0e8de08697eb95072aaf2ae3b3544509bca7836f44b5c99cab3b21fa37a1bd",
+      "post_training/official_idql/__init__.py": "ed8dc86f0bbdb469414248fa78128b001898356c5121899ba252dbba5199ec86",
+      "post_training/official_idql/runner.py": "971302ad825351e1818869596645f3c9c4ce141ecd8e64f0f0a5da40029097f9",
+      "post_training/official_idql/scoring.py": "d03f5ffa0d3803f066dab57d0c3b55ed61db63b25c04bd3d7095345d51efcc3d",
+      "post_training/official_idql/checkpoint.py": "638b103bef00e72d55b880d7c238c3704e3c0b2a26b1c3b60f4ab82f92496586",
+      "post_training/official_idql/adapters.py": "2fd141bf205d72c5dd3e66c49eb6090e58abbc65bc3eef5a05d03dc7492c97d4"
+    },
+    "installed_smoke": {
+      "files_verified": 80,
+      "actual_package": "/tmp/idql-official-installed-wheel-zippfuq5/post_training/__init__.py",
+      "real_upstream_update_object": true,
+      "backend": "cpu"
+    },
+    "gpu_used": false
+  },
+  "plot_verification_receipt_sha256": "df053b20b78ac58bbfde4f2703df34100799087f3c0f88a5905e85b6a372993b",
+  "upstream_bytes_verified_against_original_git_objects": 80,
+  "upstream_git_index_blob_bytes_verified": 80,
+  "new_server_training_started": false,
+  "gpu_validated": false,
+  "limits": [
+    "CPU and virtual CPU devices only; CUDA/A100 environment and kernels remain untested.",
+    "Vision, H8 macro transitions and frozen pi0.5 are explicit domain adapters, not a complete original-DDPM benchmark reproduction.",
+    "The pixel example is not bound to actual Scene24 data, frozen roster, normalization or behavior weights for deployment.",
+    "Platform evaluation registration and NAS scheduling are separate deployment work; no new service or GPU job was started."
+  ]
+}
