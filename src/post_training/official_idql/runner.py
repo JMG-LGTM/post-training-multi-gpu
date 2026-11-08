@@ -216,7 +216,10 @@ def create_state(config,adapter,devices=None):
             latent_dim=pixel['latent_dim'],augmentation_pad=pixel['random_crop_pad'])
     agent=core.create_agent(config['training']['seed'],jax.tree_util.tree_map(lambda x:x[0],sample['observations']),
                             sample['actions'][0],**options)
-    return jax.device_put_replicated(agent,devices) if config['runtime']['device_count']>1 else agent
+    if config['runtime']['device_count']>1:
+        from .replication import replicate_state_via_host
+        return replicate_state_via_host(agent,devices)
+    return agent
 
 
 def evaluate(agent,adapter,batch_size,*,diagnostics_config=None,same_state_pairs=None):
