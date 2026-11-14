@@ -1,0 +1,645 @@
+{
+  "schema_version": 1,
+  "kind": "official_idql_twinq_review_branch_split",
+  "observed_at_utc": "2026-11-14T06:56:17.502671+00:00",
+  "review_branch": "review/official-idql-twinq-20261114",
+  "training_source_commit": "3bc0f55d4fc753e1e6781930c7495266040d7d28",
+  "preparation_worktree_head_commit": "3bc0f55d4fc753e1e6781930c7495266040d7d28",
+  "base_dependency": {
+    "branch": "review/bc-iql-updates-20261114",
+    "published_commit": "f543522ac224f056e3cd8c919a2e8e784f9550c4",
+    "intended_pull_request_base": "review/bc-iql-updates-20261114",
+    "note": "This local worktree was prepared from the trained commit to preserve exact bytes. Publication is to create the reviewed tree with the published BC/IQL commit as parent; the preparation ancestry is not the intended PR ancestry. Shared BC/IQL functionality is a dependency, not an independent reimplementation."
+  },
+  "change_scope": {
+    "algorithm_source_modified": false,
+    "retained_src_and_test_python_files_matching_training_commit": 136,
+    "retained_src_and_test_python_files_all_match_training_commit": true,
+    "production_training_started": false,
+    "gpu_execution": false,
+    "cpu_synthetic_optimizer_updates_executed_by_tests": true,
+    "note": "Only preference-only file removal and review documentation changes were prepared. Synthetic CPU fixture updates are tests, not a new Scene24 training run."
+  },
+  "checkpoint_bound_sources": {
+    "count": 16,
+    "all_match_training_commit": true,
+    "unchanged_during_this_test_run": true,
+    "definition": "All 11 src/post_training/official_idql/*.py files plus replay.py, data.py, archive_io.py, config.py and io.py, matching runner.run_contract source_sha256 membership.",
+    "files": {
+      "src/post_training/archive_io.py": {
+        "training_sha256": "b4f136852c5e94de76da4a36f903cbaa45049510ccb89a89e4ee0fe6b6720074",
+        "review_sha256": "b4f136852c5e94de76da4a36f903cbaa45049510ccb89a89e4ee0fe6b6720074",
+        "bytes": 2620,
+        "matches_training": true
+      },
+      "src/post_training/config.py": {
+        "training_sha256": "6d0c9589dd7b4ec3e08c75f47cb9255f10be37177af8cc58903f46ec495d1fca",
+        "review_sha256": "6d0c9589dd7b4ec3e08c75f47cb9255f10be37177af8cc58903f46ec495d1fca",
+        "bytes": 13531,
+        "matches_training": true
+      },
+      "src/post_training/data.py": {
+        "training_sha256": "e93463355a24f7b3b8c4b05e3c71c4ee50e333a3c4eb63dac5eb12faa9c5490b",
+        "review_sha256": "e93463355a24f7b3b8c4b05e3c71c4ee50e333a3c4eb63dac5eb12faa9c5490b",
+        "bytes": 38638,
+        "matches_training": true
+      },
+      "src/post_training/io.py": {
+        "training_sha256": "5796c5a352bda4ffed4ed86c866114f14c7853b385e5f63b97ee1640580436e0",
+        "review_sha256": "5796c5a352bda4ffed4ed86c866114f14c7853b385e5f63b97ee1640580436e0",
+        "bytes": 1084,
+        "matches_training": true
+      },
+      "src/post_training/official_idql/__init__.py": {
+        "training_sha256": "ed8dc86f0bbdb469414248fa78128b001898356c5121899ba252dbba5199ec86",
+        "review_sha256": "ed8dc86f0bbdb469414248fa78128b001898356c5121899ba252dbba5199ec86",
+        "bytes": 337,
+        "matches_training": true
+      },
+      "src/post_training/official_idql/adapters.py": {
+        "training_sha256": "db8707cfe40ac0af31c4bc1fe942c334acc25c41f1b5fa6db51a16fd20d9b2a6",
+        "review_sha256": "db8707cfe40ac0af31c4bc1fe942c334acc25c41f1b5fa6db51a16fd20d9b2a6",
+        "bytes": 16405,
+        "matches_training": true
+      },
+      "src/post_training/official_idql/checkpoint.py": {
+        "training_sha256": "638b103bef00e72d55b880d7c238c3704e3c0b2a26b1c3b60f4ab82f92496586",
+        "review_sha256": "638b103bef00e72d55b880d7c238c3704e3c0b2a26b1c3b60f4ab82f92496586",
+        "bytes": 7717,
+        "matches_training": true
+      },
+      "src/post_training/official_idql/core.py": {
+        "training_sha256": "8f17f0b96cc8447df5f9113194e82014f321547be6c9f76fe96465e2e5e50adc",
+        "review_sha256": "8f17f0b96cc8447df5f9113194e82014f321547be6c9f76fe96465e2e5e50adc",
+        "bytes": 16751,
+        "matches_training": true
+      },
+      "src/post_training/official_idql/diagnostics.py": {
+        "training_sha256": "be95492b6de4f9ebb363117be72fad564a49a872aa61b8199b672f804b272c73",
+        "review_sha256": "be95492b6de4f9ebb363117be72fad564a49a872aa61b8199b672f804b272c73",
+        "bytes": 11888,
+        "matches_training": true
+      },
+      "src/post_training/official_idql/pairs.py": {
+        "training_sha256": "f0ca078b595aaa0c5f3a3133e92538bcf4a375d32727774dcd31dce8af29f39f",
+        "review_sha256": "f0ca078b595aaa0c5f3a3133e92538bcf4a375d32727774dcd31dce8af29f39f",
+        "bytes": 12092,
+        "matches_training": true
+      },
+      "src/post_training/official_idql/replication.py": {
+        "training_sha256": "23731d61bda4797906865a0c3548638dd3c94525f485f4a0acea20df2ac392c6",
+        "review_sha256": "23731d61bda4797906865a0c3548638dd3c94525f485f4a0acea20df2ac392c6",
+        "bytes": 6975,
+        "matches_training": true
+      },
+      "src/post_training/official_idql/runner.py": {
+        "training_sha256": "8562911de249cefc071257c981057d7583b6350e8b0e2bdba1b83360e24784dd",
+        "review_sha256": "8562911de249cefc071257c981057d7583b6350e8b0e2bdba1b83360e24784dd",
+        "bytes": 31931,
+        "matches_training": true
+      },
+      "src/post_training/official_idql/scoring.py": {
+        "training_sha256": "d03f5ffa0d3803f066dab57d0c3b55ed61db63b25c04bd3d7095345d51efcc3d",
+        "review_sha256": "d03f5ffa0d3803f066dab57d0c3b55ed61db63b25c04bd3d7095345d51efcc3d",
+        "bytes": 10831,
+        "matches_training": true
+      },
+      "src/post_training/official_idql/selection.py": {
+        "training_sha256": "f723ddc97df9004090a61a648594f46d3b28c8002250ef8a414bf8ca79540117",
+        "review_sha256": "f723ddc97df9004090a61a648594f46d3b28c8002250ef8a414bf8ca79540117",
+        "bytes": 4983,
+        "matches_training": true
+      },
+      "src/post_training/official_idql/upstream.py": {
+        "training_sha256": "a1137b26d2ae26a48765d1faa8fdb8625aa4a99c5a18164d4abf2e883714e29d",
+        "review_sha256": "a1137b26d2ae26a48765d1faa8fdb8625aa4a99c5a18164d4abf2e883714e29d",
+        "bytes": 6698,
+        "matches_training": true
+      },
+      "src/post_training/replay.py": {
+        "training_sha256": "1dd4eb61b0db1a86ead30f3fda44b1b55f8f7030e0ad59ab924f54e86fa75e89",
+        "review_sha256": "1dd4eb61b0db1a86ead30f3fda44b1b55f8f7030e0ad59ab924f54e86fa75e89",
+        "bytes": 16688,
+        "matches_training": true
+      }
+    }
+  },
+  "additional_shared_dependency": {
+    "path": "src/post_training/diagnostics.py",
+    "training_sha256": "7070fb3d79775e0b0c7dc54161453c619b4bb3b144b9bdc04e824dcf8b303e7a",
+    "review_sha256": "7070fb3d79775e0b0c7dc54161453c619b4bb3b144b9bdc04e824dcf8b303e7a",
+    "matches_training_commit": true
+  },
+  "vendor_byte_audit": {
+    "upstream_commit": "7582571ce686c77b4ee0f592dd639ab8151295fa",
+    "training_vendor_git_tree": "886d0e2ea619db77a063e7c9ad3b46d88cd9d780",
+    "tracked_vendor_files": 81,
+    "upstream_payload_files": 80,
+    "exact_file_set_matches_training_commit": true,
+    "all_tracked_file_bytes_match_training_commit": true,
+    "all_upstream_manifest_sizes_and_sha256_match": true,
+    "unchanged_during_this_test_run": true,
+    "upstream_manifest_sha256": "fe478e2e6373f6c17d449d572f754e604448a1d06aae70f4040b13a586538769",
+    "tracked_file_sha256": {
+      "src/post_training/_vendor/idql_official/README.md": "eef8ca2fdf8ddcd2123ef743706aa895d2a41abb4f5d404483ec049a45ed9efd",
+      "src/post_training/_vendor/idql_official/UPSTREAM.json": "fe478e2e6373f6c17d449d572f754e604448a1d06aae70f4040b13a586538769",
+      "src/post_training/_vendor/idql_official/examples/pixels/README.md": "fffad88d337e304f9989f1a2ee9a9d8f1f3e92dbdf6fb9ab284d71edf4cb52cb",
+      "src/post_training/_vendor/idql_official/examples/pixels/collect_from_checkpoint.py": "c66145b20ddd561814f801af9a42a81badeeb7f13165b823f5a1f0e2cb38779e",
+      "src/post_training/_vendor/idql_official/examples/pixels/configs/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "src/post_training/_vendor/idql_official/examples/pixels/configs/drq_config.py": "c81324d218cf1ee3f906071cf2999efd573b6b3772d40c23bd1a18aeb305055d",
+      "src/post_training/_vendor/idql_official/examples/pixels/configs/pixel_bc_config.py": "202af346d172a7d66f6ab56150aa1eeeaea57efd66046976dcfd573245264581",
+      "src/post_training/_vendor/idql_official/examples/pixels/configs/pixel_config.py": "ebf61bc292f50c4fa6fce367887ea016de630fc5edddac018e3a98c615ba1500",
+      "src/post_training/_vendor/idql_official/examples/pixels/train_offline_pixels.py": "40bed0b2a67352e843bb86750465b1347d526e9591da1f0a78fe17683297bb6e",
+      "src/post_training/_vendor/idql_official/examples/pixels/train_online_pixels.py": "a25aa18d7c760ed73bab35b5eb93d97fc89f2eb4414c808f2814e877f3788c67",
+      "src/post_training/_vendor/idql_official/examples/states/README.md": "0bcc28016619ee1c0abc1a1711081e97ee889b71d542e9b413f52b448edf763d",
+      "src/post_training/_vendor/idql_official/examples/states/configs/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "src/post_training/_vendor/idql_official/examples/states/configs/bc_config.py": "979fab6d29a72cf75a27e919951fbc540ac7916cb5376aff172867308a40a8a5",
+      "src/post_training/_vendor/idql_official/examples/states/configs/droq_config.py": "999f446b0be6e87d802abf17405e8b0b834f4881e68066773470b89a457ce002",
+      "src/post_training/_vendor/idql_official/examples/states/configs/iql_antmaze_config.py": "c70ff1df02f87fcc0b396c44fbadaab8917c4867c01f3de85d8d9082377b6051",
+      "src/post_training/_vendor/idql_official/examples/states/configs/iql_mujoco_config.py": "040fbeec725988b0dbc8a57898027b210a81cbff90f10bd080504155f6fffb9a",
+      "src/post_training/_vendor/idql_official/examples/states/configs/redq_config.py": "55959389fccc8a9607b9572ab941833583a8cf439391d671f3a1e654e845f59f",
+      "src/post_training/_vendor/idql_official/examples/states/configs/sac_config.py": "13a387ab37029a00a480dacd66e5abcc07ec6f3fa0cb9c37cc157f8b6adc0023",
+      "src/post_training/_vendor/idql_official/examples/states/configs/td3_config.py": "1186d9c4dc0c846188710c29afe6f870b83e53bc359be9756da675107d0a0130",
+      "src/post_training/_vendor/idql_official/examples/states/configs/td_config.py": "b705e408ad5a96bcdd043dee0825b714e3ebc1a940594f118a2ec5e15f729308",
+      "src/post_training/_vendor/idql_official/examples/states/train_diffusion_offline.py": "87b4a4af9a077a31d4e7acf8cec3245b65a2bd0ccb8b480a0ca7e9d9cb1793df",
+      "src/post_training/_vendor/idql_official/examples/states/train_offline.py": "6a1e7ad61e96471b92f11306479612b85932bfbe32fb08040e36db7fe3bf3cd7",
+      "src/post_training/_vendor/idql_official/examples/states/train_online.py": "918b337390198fa8db7c79e1c8f3d9da7eee9ac016a68fb9c73dcde46f10b143",
+      "src/post_training/_vendor/idql_official/jaxrl5/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "src/post_training/_vendor/idql_official/jaxrl5/agents/__init__.py": "281bd3d6d39efc4ed64624a9d64e5f7fa6fc828831c6d3227bbe6b0945853150",
+      "src/post_training/_vendor/idql_official/jaxrl5/agents/agent.py": "38cdfa470c4f78161e3011a77d5ba80c86c88ff2c8ab7fdcf04ceeaee05cbb63",
+      "src/post_training/_vendor/idql_official/jaxrl5/agents/bc/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "src/post_training/_vendor/idql_official/jaxrl5/agents/bc/bc_learner.py": "1952c874507c7839b0219bad79227a258917a4fe1eb77a4a2324db9107e0553d",
+      "src/post_training/_vendor/idql_official/jaxrl5/agents/ddpm_iql/__init__.py": "33878655bf3bc08ee2220d9317541c3699e87121bd30a41f084433e47a28e039",
+      "src/post_training/_vendor/idql_official/jaxrl5/agents/ddpm_iql/ddpm_iql_learner.py": "0a55fc1b076c8eaaa5a54f26509b8793111e0322c1442f271f1ceb3aa0f6b0a0",
+      "src/post_training/_vendor/idql_official/jaxrl5/agents/ddpm_iql_simple/__init__.py": "33878655bf3bc08ee2220d9317541c3699e87121bd30a41f084433e47a28e039",
+      "src/post_training/_vendor/idql_official/jaxrl5/agents/ddpm_iql_simple/ddpm_iql_learner.py": "8dc87a85e5f5720c493556df8ec3be489786a34db9e989bebc9b96eeae27566f",
+      "src/post_training/_vendor/idql_official/jaxrl5/agents/drq/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "src/post_training/_vendor/idql_official/jaxrl5/agents/drq/augmentations.py": "01be2a871b529c47345a3f94e082238ef42586a9118c1bfc1943954cf959333f",
+      "src/post_training/_vendor/idql_official/jaxrl5/agents/drq/drq_learner.py": "7d0e16ae99dd9fc997501503e69b45faed2aa3b6a7554db5e003006651030e66",
+      "src/post_training/_vendor/idql_official/jaxrl5/agents/iql/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "src/post_training/_vendor/idql_official/jaxrl5/agents/iql/iql_learner.py": "534569b255a832514eb4fcf2386799deda63fe53bda60f431253e467e65daff2",
+      "src/post_training/_vendor/idql_official/jaxrl5/agents/pixel_bc/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "src/post_training/_vendor/idql_official/jaxrl5/agents/pixel_bc/pixel_bc_learner.py": "0bedbc7e1e52b806bb77a15d54e5894bc5399cb610077ab97b4010b7f498cd01",
+      "src/post_training/_vendor/idql_official/jaxrl5/agents/sac/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "src/post_training/_vendor/idql_official/jaxrl5/agents/sac/sac_learner.py": "ee025dac866ca86990dd6a0cdb32098ac712f1aaa28ca257df29540863066204",
+      "src/post_training/_vendor/idql_official/jaxrl5/agents/sac/temperature.py": "3475eea5b9601c8f21a24c732ab511b2c43ef738870ea4a35bdc76f2f6888727",
+      "src/post_training/_vendor/idql_official/jaxrl5/agents/td3/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "src/post_training/_vendor/idql_official/jaxrl5/agents/td3/td3_learner.py": "b95fe4db6140f3c8973f161ea1d17a68169c613849e7d8489c78187c63a33144",
+      "src/post_training/_vendor/idql_official/jaxrl5/data/__init__.py": "56895c0c9a2f2346af7e3c7f077a3f8241be9469437a2aff0f4d44fdbebc1567",
+      "src/post_training/_vendor/idql_official/jaxrl5/data/binary_datasets.py": "beec1ca3b830812bf41e5ae7c35a070952cc6e96e5ef9013b245b08bc777b012",
+      "src/post_training/_vendor/idql_official/jaxrl5/data/d4rl_datasets.py": "456e0a07625c4e6190d7ae845696a346a1532c3cea952306b6efe18771dff93b",
+      "src/post_training/_vendor/idql_official/jaxrl5/data/dataset.py": "8481b0e653273fbe37c462aea1d963c352e3e733dd5375dab7aa308882e67938",
+      "src/post_training/_vendor/idql_official/jaxrl5/data/memory_efficient_replay_buffer.py": "655b2c82bfc6020c99416eb882a76562dd2922a740364c0e04e3ddfdd12d1d87",
+      "src/post_training/_vendor/idql_official/jaxrl5/data/replay_buffer.py": "3366bf8b872c19e0610bb9e2bc5e138f832622dce4bdf9fb0adc56409dbe4196",
+      "src/post_training/_vendor/idql_official/jaxrl5/distributions/__init__.py": "bfba23e393acea47ecc0aeb3f3fc84686731ab5a10acb620ae1685c40c8a39e8",
+      "src/post_training/_vendor/idql_official/jaxrl5/distributions/tanh_deterministic.py": "38153b1708229347ef364e708bb1c5f59b54d79c5b561d7e4e7a2506277058eb",
+      "src/post_training/_vendor/idql_official/jaxrl5/distributions/tanh_normal.py": "0e0a772077ada9c7949eb06abfbf5473218745ff607b9355f10738a1aba602a4",
+      "src/post_training/_vendor/idql_official/jaxrl5/distributions/tanh_transformed.py": "d3b777e9c3241158dda9a621dbc576314bd996670e1cf1fcf9538c5f2a7a06f7",
+      "src/post_training/_vendor/idql_official/jaxrl5/evaluation.py": "05a77284a6d855b54db16cd4a642da2f4e019df5fd7232ab94b1dfbf48b3591d",
+      "src/post_training/_vendor/idql_official/jaxrl5/networks/__init__.py": "f264d62cc4762c21894a374b7f225dff5d8c8fc803386f70454d6f2f1375b503",
+      "src/post_training/_vendor/idql_official/jaxrl5/networks/diffusion.py": "ff0e3b01ddb5739e11f17f3a199d3d2faed308680270c17e0f0de062f34dda9a",
+      "src/post_training/_vendor/idql_official/jaxrl5/networks/encoders/__init__.py": "d27898e96f474711d952e96cf3abe90f0323427dd14db990d12b433aa1d9352c",
+      "src/post_training/_vendor/idql_official/jaxrl5/networks/encoders/d4pg_encoder.py": "fc2dd9431bb6365e9146ccd701ea6fbaa40b5d78e346da54b195010d5fc3eb51",
+      "src/post_training/_vendor/idql_official/jaxrl5/networks/encoders/ln_resnet_encoder.py": "92935e9010171b852a213f1bfedeff2fca7d7ae3e5d2af1812026a2b93263a5a",
+      "src/post_training/_vendor/idql_official/jaxrl5/networks/ensemble.py": "3d7e92028b0193fb806554edc226694dfcf177904f5f78a7f42559d381415d5e",
+      "src/post_training/_vendor/idql_official/jaxrl5/networks/mlp.py": "e90a14f82ddc819397a7d7dc7dc4b93d5366d04f13f64eceea5aeef7677b69d8",
+      "src/post_training/_vendor/idql_official/jaxrl5/networks/pixel_multiplexer.py": "324c8c13cbe2c85e19587f7d76e3bedf268de7c0907cadd454872365df39cbfb",
+      "src/post_training/_vendor/idql_official/jaxrl5/networks/resnet.py": "927ba9e74f37f187667b185cc9d442ee9170611af3fd51339285d7577cdb3002",
+      "src/post_training/_vendor/idql_official/jaxrl5/networks/state_action_value.py": "eec608a5d535afc57116a46fedb24897edcaacd1581eba51592a5d42248c1779",
+      "src/post_training/_vendor/idql_official/jaxrl5/networks/state_value.py": "6da0dc238a15b48d3f7f6484f191f9001bf4d6316b4a141406f26a5b053fc4ad",
+      "src/post_training/_vendor/idql_official/jaxrl5/normalization.py": "05a3438bcd1b8b7cffe9c07d91a7ce777c5b583e6dd2402d3f709facb9c23e4c",
+      "src/post_training/_vendor/idql_official/jaxrl5/types.py": "79c2193a906cb34950df2896775837d8e946fcc8d0cf0ee68cda6598bc5d8727",
+      "src/post_training/_vendor/idql_official/jaxrl5/wrappers/__init__.py": "6493c4ce0a4281180f51d91b628af73bdf750bd26834ffef75ea9f9d10a3ad60",
+      "src/post_training/_vendor/idql_official/jaxrl5/wrappers/frame_stack.py": "3f742ffbe538e4ec120836681da491d2e70125cf8d572106fda518c4d31c5a44",
+      "src/post_training/_vendor/idql_official/jaxrl5/wrappers/pixels.py": "ce6f3c4c06cbe34a505629d7208b837d7ac5927decd3b65cbe31f2128c685ad4",
+      "src/post_training/_vendor/idql_official/jaxrl5/wrappers/repeat_action.py": "ceaf0b18769f59619e79576736ac3779a7a4fbb3b2c803882caeb49c17e16917",
+      "src/post_training/_vendor/idql_official/jaxrl5/wrappers/single_precision.py": "1644e60891a530e611000a361cb2445da2c04b70f9ea7c56239f8c1e77472074",
+      "src/post_training/_vendor/idql_official/jaxrl5/wrappers/universal_seed.py": "13bd895a8e3f36ff93834bf3cffdbf95564c9aebfbf25d6c166e97e8104301bb",
+      "src/post_training/_vendor/idql_official/jaxrl5/wrappers/wandb_video.py": "19e399ba93d63cac30e5aed9734170a96aac05998c1d3deed138aa4b0ccfa509",
+      "src/post_training/_vendor/idql_official/launcher/examples/train_ddpm_iql_finetune.py": "49903789d742d629ddc1509efb5c287752218f5a24c9bdc446713d36f2ba4e31",
+      "src/post_training/_vendor/idql_official/launcher/examples/train_ddpm_iql_offline.py": "d27546655444cc6da588735e0739b86f85a8c4501202d6fc17a5662444a6d6fb",
+      "src/post_training/_vendor/idql_official/launcher/hyperparameters.py": "4a94515985eaa135a53624bc59160a093cce706152cd618218951fe0a7d4cc49",
+      "src/post_training/_vendor/idql_official/launcher/iql/train_iql_oneparam.py": "395e8fac30495daac0ae4acf9edee8293e4574b0acc9509f3961a8bc0f24ecfa",
+      "src/post_training/_vendor/idql_official/requirements.txt": "05b2e77f93abcbaa2dfea9712810d70bd4e0809c706688326f2cb35552f85269",
+      "src/post_training/_vendor/idql_official/setup.py": "4cf6f07d28b933b04c8a63cd9ab12c5fa399b5573c8161d30447b93d90a57caf"
+    }
+  },
+  "preference_exclusion": {
+    "historical_branch": "archive/custom-preference-critic-20261114",
+    "original_preference_commit": "a32e7a6",
+    "original_commit_changed_paths": 16,
+    "preference_only_added_files_removed": 14,
+    "all_removed_paths_absent": true,
+    "removed_paths": [
+      "configs/preference/control.yaml",
+      "configs/preference/idql.yaml",
+      "docs/IDQL_PREFERENCE.md",
+      "scripts/package_preferences.py",
+      "scripts/plot_preference_metrics.py",
+      "src/post_training/preference_config.py",
+      "src/post_training/preference_critic.py",
+      "src/post_training/preference_data.py",
+      "src/post_training/preference_training.py",
+      "tests/test_preference_config.py",
+      "tests/test_preference_critic.py",
+      "tests/test_preference_data.py",
+      "tests/test_preference_training.py",
+      "train_preference_idql.py"
+    ],
+    "readme_preference_tutorial_lines_removed": 40,
+    "current_preference_training_entry_available": false,
+    "pyproject_note": "The existing plot extra is retained because scripts/plot_official_idql_metrics.py also requires matplotlib. It does not enable preference supervision. pyproject.toml retains the trained-source bytes.",
+    "pyproject_sha256": "5a80a1d18e9911b4155555f2f2387918e9aba17d43660aa0214db0923f4eeb18"
+  },
+  "historical_validation": {
+    "path": "docs/OFFICIAL_IDQL_VALIDATION.json",
+    "training_commit_sha256": "2efa9ad4696711c44136de88cf52044a419f22b3b6b318531d9de43bf6601312",
+    "review_sha256": "2efa9ad4696711c44136de88cf52044a419f22b3b6b318531d9de43bf6601312",
+    "bytes_preserved_exactly": true,
+    "recorded_status": "PASS_CC_VISUAL_FIX_CPU_REVIEW_CANDIDATE_GPU_NOT_VALIDATED",
+    "recorded_observed_at": "2026-11-08T16:17:27.556584+00:00",
+    "recorded_source_base_commit": "0332f2e2a817ff47239f733cf7782bc53d09dd05",
+    "recorded_full_repository_tests": 390,
+    "recorded_official_tests": 73,
+    "scope_note": "The 2026-11-08 result covers the then-patched tree, including historical preference source/tests. Its full-suite 390 and official-suite 73 results are preserved evidence, not test counts or proof of the current cleaned branch. The runner hash predates trained initialization transport, and replication.py is absent from that old receipt. No historical result or source hash was rewritten.",
+    "checkpoint_bound_source_differences_from_historical_receipt": {
+      "src/post_training/official_idql/replication.py": {
+        "historical_receipt_sha256": null,
+        "training_sha256": "23731d61bda4797906865a0c3548638dd3c94525f485f4a0acea20df2ac392c6"
+      },
+      "src/post_training/official_idql/runner.py": {
+        "historical_receipt_sha256": "2b6f1354c21fe0967729ed7bb4fb0039d1deb20446f3c2f4355fc091d5a3267b",
+        "training_sha256": "8562911de249cefc071257c981057d7583b6350e8b0e2bdba1b83360e24784dd"
+      }
+    }
+  },
+  "scene24_review_document": {
+    "path": "docs/SCENE24_OFFICIAL_TWINQ_REVIEW_20261113.md",
+    "supplied_source_document_sha256": "d28fd5a8d85ca1df941c686052a09a2d3184d97256bb07f774c5564db92dd00e",
+    "review_document_sha256": "ee0635d69128fc65533c777d896de74a2749f4f515ac8c89e2cd84419ddacec8",
+    "note": "The supplied 2026-11-13 experiment account was copied, with the preference entry moved to a historical branch, the review split identified as byte-preserving, and a link to an untracked local review replaced by the tracked response. Production training/rollout were not rerun during this branch split."
+  },
+  "shared_bc_iql_review_document": {
+    "path": "docs/BC_IQL_REVIEW_20261114.md",
+    "sha256": "4bb3dc154554a389bb28bb159ddb2139b7ccaaa091310d6991fb29937073aff8",
+    "bytes_match_bc_iql_review_worktree": true
+  },
+  "current_cpu_verification": {
+    "status": "FAIL_CPU_PMAP_REFERENCE_NUMERICAL_TOLERANCE",
+    "counts": {
+      "tests": 84,
+      "failures": 1,
+      "errors": 0,
+      "skipped": 0,
+      "passed": 83,
+      "pytest_duration_seconds": 63.723
+    },
+    "execution": {
+      "started_at_utc": "2026-11-14T06:51:37.669797+00:00",
+      "completed_at_utc": "2026-11-14T06:52:43.123634+00:00",
+      "duration_seconds": 65.45383884431794,
+      "exit_code": 1,
+      "working_directory": "/home/JMG/Projects/post-training-multi-gpu-official-idql-review-20261114",
+      "command": [
+        "/home/JMG/Projects/post-training-multi-gpu-official-idql/.venv/bin/python",
+        "-B",
+        "-m",
+        "pytest",
+        "-q",
+        "-ra",
+        "-o",
+        "addopts=",
+        "tests/test_official_idql_adapters.py",
+        "tests/test_official_idql_augmentation.py",
+        "tests/test_official_idql_core.py",
+        "tests/test_official_idql_diagnostics.py",
+        "tests/test_official_idql_replication.py",
+        "tests/test_official_idql_runner.py",
+        "tests/test_official_idql_scoring.py",
+        "tests/test_official_idql_selection.py",
+        "--basetemp=/home/JMG/Projects/post-training-multi-gpu-official-idql-review-20261114/reports/official_idql_pytest_tmp",
+        "--junitxml=/home/JMG/Projects/post-training-multi-gpu-official-idql-review-20261114/reports/official_idql_branch_split_cpu_20261114.junit.xml"
+      ],
+      "cpu_affinity": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "enforced_environment": {
+        "CUDA_VISIBLE_DEVICES": "",
+        "JAX_PLATFORMS": "cpu",
+        "JAX_PLATFORM_NAME": "cpu",
+        "XLA_FLAGS": "--xla_force_host_platform_device_count=2",
+        "OMP_NUM_THREADS": "1",
+        "OPENBLAS_NUM_THREADS": "1",
+        "MKL_NUM_THREADS": "1",
+        "NUMEXPR_NUM_THREADS": "1",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "PYTHONPATH": "/home/JMG/Projects/post-training-multi-gpu-official-idql-review-20261114/src",
+        "TMPDIR": "/home/JMG/Projects/post-training-multi-gpu-official-idql-review-20261114/reports/tmp",
+        "XDG_CACHE_HOME": "/home/JMG/Projects/post-training-multi-gpu-official-idql-review-20261114/reports/cache",
+        "MPLCONFIGDIR": "/home/JMG/Projects/post-training-multi-gpu-official-idql-review-20261114/reports/matplotlib"
+      },
+      "test_files": [
+        "tests/test_official_idql_adapters.py",
+        "tests/test_official_idql_augmentation.py",
+        "tests/test_official_idql_core.py",
+        "tests/test_official_idql_diagnostics.py",
+        "tests/test_official_idql_replication.py",
+        "tests/test_official_idql_runner.py",
+        "tests/test_official_idql_scoring.py",
+        "tests/test_official_idql_selection.py"
+      ]
+    },
+    "all_requested_test_files_executed": true,
+    "tests_source_sha256": {
+      "tests/test_official_idql_adapters.py": "f71a8286580af8307a9f41717d66aa5b70731866be3c0a05c05da9bb4ec943ba",
+      "tests/test_official_idql_augmentation.py": "ac7d499f60f9cdcd5c069c8d806359f4d6b37f50593124862eb98d157e84b48e",
+      "tests/test_official_idql_core.py": "3e617f15f4b847dcff309157fdace7ba0c6ee0ee20eda265e764bb3ccf6dcf4a",
+      "tests/test_official_idql_diagnostics.py": "3b9142752d3846d72ae12aafd855cdfec006d3e6f0b31e1a85655b30fc40e200",
+      "tests/test_official_idql_replication.py": "2f921023851a0944f78810048195d5df5380a22b1d84221fe248d8c7d8948d8c",
+      "tests/test_official_idql_runner.py": "21a4c11c330f461a5fe3a8be702b8d7edc1a171b20012bfeb6dd2da7c871250b",
+      "tests/test_official_idql_scoring.py": "a8eac7008f21ed5d238c3a8e5d5ec3d5a4b267ee10f4f9af873332e3571f5d9e",
+      "tests/test_official_idql_selection.py": "c25910e08d14c822919f7672284b516028e35d9a032a7c637e49266d22083186"
+    },
+    "tests_source_bytes_match_training_commit": true,
+    "protected_sources_unchanged_before_and_after_tests": true,
+    "failures": [
+      {
+        "nodeid": "tests/test_official_idql_core.py::test_two_virtual_cpu_pmap_reduces_gradients_before_adam_vs_global64",
+        "type": null,
+        "message": "AssertionError: \nNot equal to tolerance rtol=2e-05, atol=2e-06\n\nMismatched elements: 1 / 131072 (0.000763%)\nMax absolute difference: 3.2298267e-06\nMax relative difference: 0.00025945\n x: array([[[ 0.055576,  0.049829, -0.097443, ...,  0.018861,  0.060644,\n          0.045455],\n        [-0.067967, -0.087696, -0.072946, ..., -0.00425 , -0.039642,...\n y: array([[[ 0.055576,  0.049829, -0.097443, ...,  0.018861,  0.060644,\n          0.045455],\n        [-0.067967, -0.087696, -0.072946, ..., -0.00425 , -0.039642,...",
+        "details": "def test_two_virtual_cpu_pmap_reduces_gradients_before_adam_vs_global64():\n     if jax.local_device_count()!=2:\n      pytest.skip('Full two-device check requires a fresh process: tools/verify_official_idql.py; not verified in this pytest process')\n     distributed=fresh(axis_name='devices');reference_agent=reference();rng=np.random.default_rng(134)\n     replicated=jax.device_put_replicated(distributed,jax.local_devices())\n     update=jax.pmap(core.update,axis_name='devices');records=[]\n     for step in range(1,4):\n      data=batch(rng)\n      # Opposed reward halves strongly distinguish mean gradients from averaged Adam updates.\n      data['rewards']=data['rewards']+jnp.concatenate((jnp.full((32,),7.),jnp.full((32,),-6.)))\n      local=jax.tree_util.tree_map(lambda x:x.reshape((2,32)+x.shape[1:]),data)\n      replicated,info=update(replicated,local);reference_agent,reference_info=official_step(reference_agent,data)\n      hosts=[jax.tree_util.tree_map(lambda x:x[rank],replicated) for rank in range(2)]\n>     records.append({'update':step,'rank0_vs_global64':compare_tree(parts(hosts[0]),parts(reference_agent)),\n                                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n       'rank1_vs_global64':compare_tree(parts(hosts[1]),parts(reference_agent)),\n       'replicas':compare_tree(parts(hosts[0]),parts(hosts[1]),atol=0,rtol=0)})\n\ntests/test_official_idql_core.py:198: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \ntests/test_official_idql_core.py:82: in compare_tree\n    np.testing.assert_allclose(a,b,atol=atol,rtol=rtol)\n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nargs = (<function assert_allclose.<locals>.compare at 0x7b13064af1a0>, array([[[ 0.05557606,  0.04982871, -0.0974429 , ...,  ...        [-0.055326  ,  0.01257998, -0.00505296, ..., -0.0494618 ,\n          0.1058133 ,  0.07983775]]], dtype=float32))\nkwds = {'equal_nan': True, 'err_msg': '', 'header': 'Not equal to tolerance rtol=2e-05, atol=2e-06', 'verbose': True}\n\n    @wraps(func)\n    def inner(*args, **kwds):\n        with self._recreate_cm():\n>           return func(*args, **kwds)\n                   ^^^^^^^^^^^^^^^^^^^\nE           AssertionError: \nE           Not equal to tolerance rtol=2e-05, atol=2e-06\nE           \nE           Mismatched elements: 1 / 131072 (0.000763%)\nE           Max absolute difference: 3.2298267e-06\nE           Max relative difference: 0.00025945\nE            x: array([[[ 0.055576,  0.049829, -0.097443, ...,  0.018861,  0.060644,\nE                     0.045455],\nE                   [-0.067967, -0.087696, -0.072946, ..., -0.00425 , -0.039642,...\nE            y: array([[[ 0.055576,  0.049829, -0.097443, ...,  0.018861,  0.060644,\nE                     0.045455],\nE                   [-0.067967, -0.087696, -0.072946, ..., -0.00425 , -0.039642,...\n\n../vla-liberox-workspace/.local-setup/envs/pi05/lib/python3.11/contextlib.py:81: AssertionError"
+      }
+    ],
+    "failure_summary": "The existing two-virtual-CPU pmap versus official global-batch64 assertion failed at its original atol=2e-6/rtol=2e-5: one of 131072 array elements mismatched; maximum absolute difference 3.2298267e-6 and maximum relative difference 0.00025945. The other 83 tests passed, with zero errors and zero skipped cases. No algorithm, test assertion, tolerance or test selection was changed or ignored. This numerical failure is not a preference-path or documentation-link failure. No claim is made that this is a passing CPU suite.",
+    "gpu_used": false,
+    "platform_enforcement": "CUDA_VISIBLE_DEVICES is empty; JAX_PLATFORMS/JAX_PLATFORM_NAME are cpu; XLA forces two host devices. Existing core/replication fixtures assert CPU devices.",
+    "production_training_or_rollout_executed": false,
+    "junit": {
+      "path": "reports/official_idql_branch_split_cpu_20261114.junit.xml",
+      "sha256": "100daaf6c4048c73073b717e6a24e5971a5a213019d4ff01e085a5dd1b122106"
+    },
+    "log": {
+      "path": "reports/official_idql_branch_split_cpu_20261114.log",
+      "sha256": "81f84711e44da7bb98b5ce6f063a16d384bbbd019878e3e13c8f3bd159a43c08"
+    },
+    "artifact_note": "Detailed log, JUnit and launcher receipt are local ignored reports, not newly claimed historical or GPU evidence.",
+    "versions": {
+      "python": "3.11.17",
+      "jax": "0.5.3",
+      "jaxlib": "0.5.3",
+      "flax": "0.10.2",
+      "optax": "0.2.4",
+      "gym": "0.26.2",
+      "numpy": "1.26.4",
+      "pytest": "8.4.2"
+    },
+    "baseline_original_and_review_same_env": {
+      "reason": "After the initial 83/84 result, rerun exactly the failed test once per tree under the same CPU affinity and enforced environment, with PYTHONPATH changed to the corresponding source tree. Preserve all original failures; do not search repeatedly for passing outcomes.",
+      "runs_per_tree": 1,
+      "same_original_and_clean_source_and_test_hashes": true,
+      "same_failure_discrepancy_on_original_and_clean_review": true,
+      "conclusion": "The unchanged trained 3bc tree and the cleaned review tree both reproduce the same pmap/global-batch64 tolerance failure in this CPU environment. The branch cleanup did not introduce a source or test byte difference. This comparison does not turn the failed numerical assertion into a pass.",
+      "runs": [
+        {
+          "label": "original_3bc",
+          "status": "FAIL_SAME_UNCHANGED_PMAP_NUMERICAL_ASSERTION",
+          "counts": {
+            "tests": 1,
+            "failures": 1,
+            "errors": 0,
+            "skipped": 0,
+            "passed": 0,
+            "pytest_duration_seconds": 3.421
+          },
+          "discrepancy": {
+            "mismatched_elements": 1,
+            "array_elements": 131072,
+            "max_absolute_difference": 3.2298267e-06,
+            "max_relative_difference": 0.00025945,
+            "absolute_tolerance": 2e-06,
+            "relative_tolerance": 2e-05
+          },
+          "execution": {
+            "label": "original_3bc",
+            "reason": "One targeted rerun in each source tree to compare the first full-suite pmap numerical failure; not a repeated search for passing outcomes.",
+            "started_at_utc": "2026-11-14T06:54:46.136142+00:00",
+            "completed_at_utc": "2026-11-14T06:54:49.941222+00:00",
+            "duration_seconds": 3.8050822848454118,
+            "exit_code": 1,
+            "working_directory": "/home/JMG/Projects/post-training-multi-gpu-official-idql",
+            "command": [
+              "/home/JMG/Projects/post-training-multi-gpu-official-idql/.venv/bin/python",
+              "-B",
+              "-m",
+              "pytest",
+              "-q",
+              "-ra",
+              "-o",
+              "addopts=",
+              "tests/test_official_idql_core.py::test_two_virtual_cpu_pmap_reduces_gradients_before_adam_vs_global64",
+              "--basetemp=/home/JMG/Projects/post-training-multi-gpu-official-idql-review-20261114/reports/official_idql_pmap_baseline_original_3bc_20261114_tmp",
+              "--junitxml=/home/JMG/Projects/post-training-multi-gpu-official-idql-review-20261114/reports/official_idql_pmap_baseline_original_3bc_20261114.junit.xml"
+            ],
+            "cpu_affinity": [
+              0,
+              1,
+              2,
+              3
+            ],
+            "enforced_environment": {
+              "CUDA_VISIBLE_DEVICES": "",
+              "JAX_PLATFORMS": "cpu",
+              "JAX_PLATFORM_NAME": "cpu",
+              "XLA_FLAGS": "--xla_force_host_platform_device_count=2",
+              "OMP_NUM_THREADS": "1",
+              "OPENBLAS_NUM_THREADS": "1",
+              "MKL_NUM_THREADS": "1",
+              "NUMEXPR_NUM_THREADS": "1",
+              "PYTHONDONTWRITEBYTECODE": "1",
+              "PYTHONPATH": "/home/JMG/Projects/post-training-multi-gpu-official-idql/src",
+              "TMPDIR": "/home/JMG/Projects/post-training-multi-gpu-official-idql-review-20261114/reports/tmp",
+              "XDG_CACHE_HOME": "/home/JMG/Projects/post-training-multi-gpu-official-idql-review-20261114/reports/cache",
+              "MPLCONFIGDIR": "/home/JMG/Projects/post-training-multi-gpu-official-idql-review-20261114/reports/matplotlib"
+            },
+            "source_and_test_sha256_before": {
+              "src/post_training/archive_io.py": "b4f136852c5e94de76da4a36f903cbaa45049510ccb89a89e4ee0fe6b6720074",
+              "src/post_training/config.py": "6d0c9589dd7b4ec3e08c75f47cb9255f10be37177af8cc58903f46ec495d1fca",
+              "src/post_training/data.py": "e93463355a24f7b3b8c4b05e3c71c4ee50e333a3c4eb63dac5eb12faa9c5490b",
+              "src/post_training/io.py": "5796c5a352bda4ffed4ed86c866114f14c7853b385e5f63b97ee1640580436e0",
+              "src/post_training/official_idql/__init__.py": "ed8dc86f0bbdb469414248fa78128b001898356c5121899ba252dbba5199ec86",
+              "src/post_training/official_idql/adapters.py": "db8707cfe40ac0af31c4bc1fe942c334acc25c41f1b5fa6db51a16fd20d9b2a6",
+              "src/post_training/official_idql/checkpoint.py": "638b103bef00e72d55b880d7c238c3704e3c0b2a26b1c3b60f4ab82f92496586",
+              "src/post_training/official_idql/core.py": "8f17f0b96cc8447df5f9113194e82014f321547be6c9f76fe96465e2e5e50adc",
+              "src/post_training/official_idql/diagnostics.py": "be95492b6de4f9ebb363117be72fad564a49a872aa61b8199b672f804b272c73",
+              "src/post_training/official_idql/pairs.py": "f0ca078b595aaa0c5f3a3133e92538bcf4a375d32727774dcd31dce8af29f39f",
+              "src/post_training/official_idql/replication.py": "23731d61bda4797906865a0c3548638dd3c94525f485f4a0acea20df2ac392c6",
+              "src/post_training/official_idql/runner.py": "8562911de249cefc071257c981057d7583b6350e8b0e2bdba1b83360e24784dd",
+              "src/post_training/official_idql/scoring.py": "d03f5ffa0d3803f066dab57d0c3b55ed61db63b25c04bd3d7095345d51efcc3d",
+              "src/post_training/official_idql/selection.py": "f723ddc97df9004090a61a648594f46d3b28c8002250ef8a414bf8ca79540117",
+              "src/post_training/official_idql/upstream.py": "a1137b26d2ae26a48765d1faa8fdb8625aa4a99c5a18164d4abf2e883714e29d",
+              "src/post_training/replay.py": "1dd4eb61b0db1a86ead30f3fda44b1b55f8f7030e0ad59ab924f54e86fa75e89",
+              "tests/test_official_idql_core.py": "3e617f15f4b847dcff309157fdace7ba0c6ee0ee20eda265e764bb3ccf6dcf4a"
+            },
+            "source_and_test_sha256_after": {
+              "src/post_training/archive_io.py": "b4f136852c5e94de76da4a36f903cbaa45049510ccb89a89e4ee0fe6b6720074",
+              "src/post_training/config.py": "6d0c9589dd7b4ec3e08c75f47cb9255f10be37177af8cc58903f46ec495d1fca",
+              "src/post_training/data.py": "e93463355a24f7b3b8c4b05e3c71c4ee50e333a3c4eb63dac5eb12faa9c5490b",
+              "src/post_training/io.py": "5796c5a352bda4ffed4ed86c866114f14c7853b385e5f63b97ee1640580436e0",
+              "src/post_training/official_idql/__init__.py": "ed8dc86f0bbdb469414248fa78128b001898356c5121899ba252dbba5199ec86",
+              "src/post_training/official_idql/adapters.py": "db8707cfe40ac0af31c4bc1fe942c334acc25c41f1b5fa6db51a16fd20d9b2a6",
+              "src/post_training/official_idql/checkpoint.py": "638b103bef00e72d55b880d7c238c3704e3c0b2a26b1c3b60f4ab82f92496586",
+              "src/post_training/official_idql/core.py": "8f17f0b96cc8447df5f9113194e82014f321547be6c9f76fe96465e2e5e50adc",
+              "src/post_training/official_idql/diagnostics.py": "be95492b6de4f9ebb363117be72fad564a49a872aa61b8199b672f804b272c73",
+              "src/post_training/official_idql/pairs.py": "f0ca078b595aaa0c5f3a3133e92538bcf4a375d32727774dcd31dce8af29f39f",
+              "src/post_training/official_idql/replication.py": "23731d61bda4797906865a0c3548638dd3c94525f485f4a0acea20df2ac392c6",
+              "src/post_training/official_idql/runner.py": "8562911de249cefc071257c981057d7583b6350e8b0e2bdba1b83360e24784dd",
+              "src/post_training/official_idql/scoring.py": "d03f5ffa0d3803f066dab57d0c3b55ed61db63b25c04bd3d7095345d51efcc3d",
+              "src/post_training/official_idql/selection.py": "f723ddc97df9004090a61a648594f46d3b28c8002250ef8a414bf8ca79540117",
+              "src/post_training/official_idql/upstream.py": "a1137b26d2ae26a48765d1faa8fdb8625aa4a99c5a18164d4abf2e883714e29d",
+              "src/post_training/replay.py": "1dd4eb61b0db1a86ead30f3fda44b1b55f8f7030e0ad59ab924f54e86fa75e89",
+              "tests/test_official_idql_core.py": "3e617f15f4b847dcff309157fdace7ba0c6ee0ee20eda265e764bb3ccf6dcf4a"
+            },
+            "all_source_and_test_bytes_match_training_commit": true,
+            "protected_source_and_test_bytes_unchanged": true
+          },
+          "junit": {
+            "path": "reports/official_idql_pmap_baseline_original_3bc_20261114.junit.xml",
+            "sha256": "47185a5e541472af8c7ccc589bf371ce63a4ebb2f8e99227493d718631849c61"
+          },
+          "log": {
+            "path": "reports/official_idql_pmap_baseline_original_3bc_20261114.log",
+            "sha256": "c3d591d523f5bb10fcb6d12d2fc7ea1641ebb1663c4672c7ffbd659d044c3d96"
+          },
+          "execution_receipt": {
+            "path": "reports/official_idql_pmap_baseline_original_3bc_20261114.execution.json",
+            "sha256": "a9c55ad1b16e7ffc9f2b245a7f33091bf1c4841513d01e4f28c46b0d452cffc5"
+          }
+        },
+        {
+          "label": "clean_review",
+          "status": "FAIL_SAME_UNCHANGED_PMAP_NUMERICAL_ASSERTION",
+          "counts": {
+            "tests": 1,
+            "failures": 1,
+            "errors": 0,
+            "skipped": 0,
+            "passed": 0,
+            "pytest_duration_seconds": 3.396
+          },
+          "discrepancy": {
+            "mismatched_elements": 1,
+            "array_elements": 131072,
+            "max_absolute_difference": 3.2298267e-06,
+            "max_relative_difference": 0.00025945,
+            "absolute_tolerance": 2e-06,
+            "relative_tolerance": 2e-05
+          },
+          "execution": {
+            "label": "clean_review",
+            "reason": "One targeted rerun in each source tree to compare the first full-suite pmap numerical failure; not a repeated search for passing outcomes.",
+            "started_at_utc": "2026-11-14T06:54:49.954032+00:00",
+            "completed_at_utc": "2026-11-14T06:54:53.739800+00:00",
+            "duration_seconds": 3.7857706090435386,
+            "exit_code": 1,
+            "working_directory": "/home/JMG/Projects/post-training-multi-gpu-official-idql-review-20261114",
+            "command": [
+              "/home/JMG/Projects/post-training-multi-gpu-official-idql/.venv/bin/python",
+              "-B",
+              "-m",
+              "pytest",
+              "-q",
+              "-ra",
+              "-o",
+              "addopts=",
+              "tests/test_official_idql_core.py::test_two_virtual_cpu_pmap_reduces_gradients_before_adam_vs_global64",
+              "--basetemp=/home/JMG/Projects/post-training-multi-gpu-official-idql-review-20261114/reports/official_idql_pmap_baseline_clean_review_20261114_tmp",
+              "--junitxml=/home/JMG/Projects/post-training-multi-gpu-official-idql-review-20261114/reports/official_idql_pmap_baseline_clean_review_20261114.junit.xml"
+            ],
+            "cpu_affinity": [
+              0,
+              1,
+              2,
+              3
+            ],
+            "enforced_environment": {
+              "CUDA_VISIBLE_DEVICES": "",
+              "JAX_PLATFORMS": "cpu",
+              "JAX_PLATFORM_NAME": "cpu",
+              "XLA_FLAGS": "--xla_force_host_platform_device_count=2",
+              "OMP_NUM_THREADS": "1",
+              "OPENBLAS_NUM_THREADS": "1",
+              "MKL_NUM_THREADS": "1",
+              "NUMEXPR_NUM_THREADS": "1",
+              "PYTHONDONTWRITEBYTECODE": "1",
+              "PYTHONPATH": "/home/JMG/Projects/post-training-multi-gpu-official-idql-review-20261114/src",
+              "TMPDIR": "/home/JMG/Projects/post-training-multi-gpu-official-idql-review-20261114/reports/tmp",
+              "XDG_CACHE_HOME": "/home/JMG/Projects/post-training-multi-gpu-official-idql-review-20261114/reports/cache",
+              "MPLCONFIGDIR": "/home/JMG/Projects/post-training-multi-gpu-official-idql-review-20261114/reports/matplotlib"
+            },
+            "source_and_test_sha256_before": {
+              "src/post_training/archive_io.py": "b4f136852c5e94de76da4a36f903cbaa45049510ccb89a89e4ee0fe6b6720074",
+              "src/post_training/config.py": "6d0c9589dd7b4ec3e08c75f47cb9255f10be37177af8cc58903f46ec495d1fca",
+              "src/post_training/data.py": "e93463355a24f7b3b8c4b05e3c71c4ee50e333a3c4eb63dac5eb12faa9c5490b",
+              "src/post_training/io.py": "5796c5a352bda4ffed4ed86c866114f14c7853b385e5f63b97ee1640580436e0",
+              "src/post_training/official_idql/__init__.py": "ed8dc86f0bbdb469414248fa78128b001898356c5121899ba252dbba5199ec86",
+              "src/post_training/official_idql/adapters.py": "db8707cfe40ac0af31c4bc1fe942c334acc25c41f1b5fa6db51a16fd20d9b2a6",
+              "src/post_training/official_idql/checkpoint.py": "638b103bef00e72d55b880d7c238c3704e3c0b2a26b1c3b60f4ab82f92496586",
+              "src/post_training/official_idql/core.py": "8f17f0b96cc8447df5f9113194e82014f321547be6c9f76fe96465e2e5e50adc",
+              "src/post_training/official_idql/diagnostics.py": "be95492b6de4f9ebb363117be72fad564a49a872aa61b8199b672f804b272c73",
+              "src/post_training/official_idql/pairs.py": "f0ca078b595aaa0c5f3a3133e92538bcf4a375d32727774dcd31dce8af29f39f",
+              "src/post_training/official_idql/replication.py": "23731d61bda4797906865a0c3548638dd3c94525f485f4a0acea20df2ac392c6",
+              "src/post_training/official_idql/runner.py": "8562911de249cefc071257c981057d7583b6350e8b0e2bdba1b83360e24784dd",
+              "src/post_training/official_idql/scoring.py": "d03f5ffa0d3803f066dab57d0c3b55ed61db63b25c04bd3d7095345d51efcc3d",
+              "src/post_training/official_idql/selection.py": "f723ddc97df9004090a61a648594f46d3b28c8002250ef8a414bf8ca79540117",
+              "src/post_training/official_idql/upstream.py": "a1137b26d2ae26a48765d1faa8fdb8625aa4a99c5a18164d4abf2e883714e29d",
+              "src/post_training/replay.py": "1dd4eb61b0db1a86ead30f3fda44b1b55f8f7030e0ad59ab924f54e86fa75e89",
+              "tests/test_official_idql_core.py": "3e617f15f4b847dcff309157fdace7ba0c6ee0ee20eda265e764bb3ccf6dcf4a"
+            },
+            "source_and_test_sha256_after": {
+              "src/post_training/archive_io.py": "b4f136852c5e94de76da4a36f903cbaa45049510ccb89a89e4ee0fe6b6720074",
+              "src/post_training/config.py": "6d0c9589dd7b4ec3e08c75f47cb9255f10be37177af8cc58903f46ec495d1fca",
+              "src/post_training/data.py": "e93463355a24f7b3b8c4b05e3c71c4ee50e333a3c4eb63dac5eb12faa9c5490b",
+              "src/post_training/io.py": "5796c5a352bda4ffed4ed86c866114f14c7853b385e5f63b97ee1640580436e0",
+              "src/post_training/official_idql/__init__.py": "ed8dc86f0bbdb469414248fa78128b001898356c5121899ba252dbba5199ec86",
+              "src/post_training/official_idql/adapters.py": "db8707cfe40ac0af31c4bc1fe942c334acc25c41f1b5fa6db51a16fd20d9b2a6",
+              "src/post_training/official_idql/checkpoint.py": "638b103bef00e72d55b880d7c238c3704e3c0b2a26b1c3b60f4ab82f92496586",
+              "src/post_training/official_idql/core.py": "8f17f0b96cc8447df5f9113194e82014f321547be6c9f76fe96465e2e5e50adc",
+              "src/post_training/official_idql/diagnostics.py": "be95492b6de4f9ebb363117be72fad564a49a872aa61b8199b672f804b272c73",
+              "src/post_training/official_idql/pairs.py": "f0ca078b595aaa0c5f3a3133e92538bcf4a375d32727774dcd31dce8af29f39f",
+              "src/post_training/official_idql/replication.py": "23731d61bda4797906865a0c3548638dd3c94525f485f4a0acea20df2ac392c6",
+              "src/post_training/official_idql/runner.py": "8562911de249cefc071257c981057d7583b6350e8b0e2bdba1b83360e24784dd",
+              "src/post_training/official_idql/scoring.py": "d03f5ffa0d3803f066dab57d0c3b55ed61db63b25c04bd3d7095345d51efcc3d",
+              "src/post_training/official_idql/selection.py": "f723ddc97df9004090a61a648594f46d3b28c8002250ef8a414bf8ca79540117",
+              "src/post_training/official_idql/upstream.py": "a1137b26d2ae26a48765d1faa8fdb8625aa4a99c5a18164d4abf2e883714e29d",
+              "src/post_training/replay.py": "1dd4eb61b0db1a86ead30f3fda44b1b55f8f7030e0ad59ab924f54e86fa75e89",
+              "tests/test_official_idql_core.py": "3e617f15f4b847dcff309157fdace7ba0c6ee0ee20eda265e764bb3ccf6dcf4a"
+            },
+            "all_source_and_test_bytes_match_training_commit": true,
+            "protected_source_and_test_bytes_unchanged": true
+          },
+          "junit": {
+            "path": "reports/official_idql_pmap_baseline_clean_review_20261114.junit.xml",
+            "sha256": "00195dd7cf7d4dbd45fe6ae46a85fff186051159479f750fb4178f5032f5171c"
+          },
+          "log": {
+            "path": "reports/official_idql_pmap_baseline_clean_review_20261114.log",
+            "sha256": "f01e0ad7a112003e1270cb7abf49d066431804471deccd4ea4ce10ef2413cfe9"
+          },
+          "execution_receipt": {
+            "path": "reports/official_idql_pmap_baseline_clean_review_20261114.execution.json",
+            "sha256": "9cc0abeb07b3425e421eab37f80ac962acef9b73ca163e3efc028b664fc1f2a8"
+          }
+        }
+      ]
+    }
+  },
+  "documentation_link_audit": {
+    "removed_dead_link": "../REVIEW_CC_OFFICIAL_IDQL.md",
+    "reason": "The original worktree file is a local ignored review artifact, not tracked in trained 3bc or the new review worktree.",
+    "retained_response": "docs/OFFICIAL_IDQL_CC_RESPONSE.md",
+    "response_is_tracked": true
+  }
+}

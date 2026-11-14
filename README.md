@@ -1,16 +1,45 @@
 # pi0.5 post-training on 1–8 GPUs
 
-**分支定位：** `review/bc-iql-updates-20261114` 整理初版 `main` 之后的 BC、IQL 和共用训练改进；入口仍是 `train.py`。`review/official-idql-twinq-20261114` 以此为共享基座，单独审阅官方 IDQL 差异；`archive/custom-preference-critic-20261114` 保留旧 preference critic 历史。详见[中文变更与验证说明](docs/BC_IQL_REVIEW_20261114.md)。这里的 IQL 使用项目原有 PyTorch twin-Q/V。
+**Official IDQL twin-Q review branch:** `review/official-idql-twinq-20261114`
+organizes the trained `3bc0f55d4fc753e1e6781930c7495266040d7d28` source for review.
+It depends on the shared [BC/IQL update branch](https://github.com/JMG-LGTM/post-training-multi-gpu/tree/review/bc-iql-updates-20261114); it is not a standalone
+replacement for that base. The [BC/IQL review](docs/BC_IQL_REVIEW_20261114.md) describes
+that shared work. The 16 checkpoint-bound source files and the complete
+vendor tree retain their training-version bytes. This branch split does not
+retrain the model. See the [Scene24 training review](docs/SCENE24_OFFICIAL_TWINQ_REVIEW_20261113.md)
+and [branch split audit](docs/BRANCH_SPLIT_AUDIT_20261114.json).
+The custom preference experiment is isolated on the
+[historical preference branch](https://github.com/JMG-LGTM/post-training-multi-gpu/tree/archive/custom-preference-critic-20261114) and is absent from this branch.
+
+**IDQL implementation correction:** `train.py --method critic` uses the
+repository's custom PyTorch PixelIQL networks. This is **not the IDQL authors'
+implementation**, and its checks/results do not establish agreement with the
+author code. The separate
+`train_idql_official.py` entry point executes the pinned authors' JAX Q/V
+functions and networks. See [OFFICIAL_IDQL.md](docs/OFFICIAL_IDQL.md) for source
+identity, multi-device execution, explicit domain adapters and verification.
+This new path does not add preferences or update the behavior actor. Its vision,
+action-chunk and pi0.5 integration must be reported as adaptations, not as a
+complete reproduction of the original DDPM experiments.
 
 Standalone BC, IQL and Q/V-only training for 1–8 GPUs, with configurations
 targeting one 8 × H20 96 GB server. All commands are noninteractive. Portable
 dataset packages let training run independently of the data collection platform.
 
-**Validation status:** the framework has been tested on CPU, including
-2/4-process gloo, real recording packaging/cache construction and fake-policy
-export compatibility. Real pi0.5 weight loading, CUDA/NCCL, GPU memory/throughput,
-resume/export/inference with real weights and trained-policy evaluation have
-not yet been validated. Run the policy smoke configurations before long training.
+**Historical framework validation scope:** the original framework checks covered
+CPU execution, including 2/4-process gloo, real recording packaging/cache
+construction and fake-policy export compatibility. Those checks did not validate
+real pi0.5 weights, CUDA/NCCL or trained-policy evaluation. The later Scene24
+official Q/V training and rollout are recorded separately in the
+[Scene24 training review](docs/SCENE24_OFFICIAL_TWINQ_REVIEW_20261113.md); they do
+not extend those historical checks to every framework path. CPU tests actually
+run for this branch split are recorded in the branch split audit.
+
+**Branch split CPU result:** 83 of 84 official tests passed, with one existing
+pmap/global-batch64 numerical-tolerance failure and no skipped tests. A single
+targeted rerun reproduced the same failure on both the unchanged trained source
+and this cleaned branch. The original assertions and tolerances are preserved;
+see the audit for exact commands, hashes and results.
 
 | Method | Trained components | Policy dependency |
 | --- | --- | --- |
@@ -18,8 +47,9 @@ not yet been validated. Run the policy smoke configurations before long training
 | `iql` | V, twin Q, target Q, advantage-weighted policy | Pinned pi0.5 base |
 | `critic` | V, twin Q and target Q only | None; no OpenPI or model weights |
 
-BC and critic provide the two parts of a future IDQL system. Sampling candidate
-actions and selecting with Q at inference time is outside this release.
+The legacy BC and custom PixelIQL critic paths remain available under their
+original names. Use the separate official-backed path for author-source IDQL
+Q/V work; it never falls back to these PyTorch networks or loads their weights.
 
 ## 1. Environment
 
