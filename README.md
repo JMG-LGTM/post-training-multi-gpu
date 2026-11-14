@@ -1,3 +1,15 @@
+> **历史混合分支，已拆分（2026-11-14）**
+>
+> 此处保留之前 BC/IQL、旧偏好实验和官方 IDQL 连续开发的历史，用于核对已有训练提交与源码 SHA；不再作为当前代码审阅入口。
+> 请按用途选择：
+>
+> - [BC/IQL 更新及共享基础：PR #2](https://github.com/JMG-LGTM/post-training-multi-gpu/pull/2)
+> - [官方双 Q IDQL：独立审阅分支](https://github.com/JMG-LGTM/post-training-multi-gpu/tree/review/official-idql-twinq-20261114)
+> - [旧自有偏好 critic：历史归档](https://github.com/JMG-LGTM/post-training-multi-gpu/tree/archive/custom-preference-critic-20261114)
+>
+> 原混合审阅快照保存在 [archive/mixed-training-history-20261114](https://github.com/JMG-LGTM/post-training-multi-gpu/tree/archive/mixed-training-history-20261114)。
+> 实际官方训练源码仍是 `3bc0f55`；此处后续整理只加说明，没有改算法或重训。
+
 # pi0.5 post-training on 1–8 GPUs
 
 **IDQL implementation correction:** `train.py --method critic` and
