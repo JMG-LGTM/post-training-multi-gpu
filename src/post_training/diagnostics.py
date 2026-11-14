@@ -162,22 +162,35 @@ def summarize_rows(rows: Sequence[Mapping[str, Any]], *,
 def evaluate_critic(model: Any, batches: Iterable[Mapping[str, Any]],
                     device: str | torch.device = "cpu", *, beta: float = 3.,
                     max_weight: float = 20.) -> dict[str, Any]:
-    """Evaluate a complete diagnostic loader without augmentation or RNG draws.
+    """Evaluate unaugmented diagnostics and per-transition critic losses.
 
     Pass the unwrapped critic on rank zero and a complete evaluation loader.
     The runner labels held-out validation versus training diagnostics and only
     permits held-out validation to select a best checkpoint.
-    This function deliberately performs no distributed collectives; the runner
-    coordinates ranks around validation and checkpoint selection.
+    Q losses use the current online V Bellman target; the expectile V loss
+    uses the minimum of the two target Q networks, as in training. These are
+    self-consistency losses, not candidate-action ranking accuracy. Model modes
+    and global/loader RNG state are restored, including when evaluation fails.
+    This function performs no distributed collectives; the runner coordinates
+    ranks around validation and checkpoint selection.
     """
+    from .checkpoint import rng_state, restore_rng
+
     if hasattr(model, "module"):
         model = model.module
+    device = torch.device(device)
     modes = {module: module.training for module in model.modules()}
+    previous_rng = rng_state(device)
+    generator = getattr(batches, "generator", None)
+    loader_rng = generator.get_state() if generator is not None else None
     collected: dict[str, list[torch.Tensor]] = {
         key: [] for key in ("q1", "q2", "q", "v", "advantage", "weights",
                            "remaining_blocks", "success_terminal")}
     trajectories: list[Any] = []
     all_have_trajectories = True
+    loss_sums = {key: 0. for key in ("q1_mse", "q2_mse", "q_loss", "v_expectile_loss",
+                                    "q_abs_disagreement", "target_mean")}
+    loss_count = 0
     model.eval()
     try:
         for original in batches:
@@ -186,6 +199,33 @@ def evaluate_critic(model: Any, batches: Iterable[Mapping[str, Any]],
             scores = model.scores(batch, beta=beta, max_weight=max_weight)
             for key, value in scores.items():
                 collected[key].append(value.detach().cpu())
+            # Use the actual staged training equations at one fixed snapshot.
+            # No optimizer or EMA update is performed by this forward call.
+            losses = model(batch, stage="both", beta=beta, max_weight=max_weight)
+            target = losses["target"]
+            if not isinstance(target, torch.Tensor) or target.ndim != 1:
+                raise ValueError("Critic loss target must be a per-transition vector")
+            count = len(target)
+            for key in ("q1", "q2", "v_loss"):
+                value = losses[key]
+                if not isinstance(value, torch.Tensor) or value.shape != target.shape:
+                    raise ValueError("Critic loss outputs must match the per-transition target")
+            q1_mse = (losses["q1"] - target).square()
+            q2_mse = (losses["q2"] - target).square()
+            per_transition = {"q1_mse": q1_mse, "q2_mse": q2_mse,
+                "q_loss": .5 * (q1_mse + q2_mse), "v_expectile_loss": losses["v_loss"],
+                "q_abs_disagreement": (losses["q1"] - losses["q2"]).abs(),
+                "target_mean": target}
+            if len(scores["v"]) != count:
+                raise ValueError("Critic diagnostics and loss transition counts differ")
+            for key, value in per_transition.items():
+                if not bool(torch.isfinite(value).all()):
+                    raise FloatingPointError("Nonfinite held-out critic statistic: " + key)
+                total = loss_sums[key] + float(value.detach().double().sum().cpu())
+                if not math.isfinite(total):
+                    raise FloatingPointError("Nonfinite held-out critic aggregate: " + key)
+                loss_sums[key] = total
+            loss_count += count
             for primary, alternate in (("remaining_blocks", "remaining_chunks"),
                                        ("success_terminal", "terminal_success")):
                 if primary not in original and alternate not in original:
@@ -199,6 +239,9 @@ def evaluate_critic(model: Any, batches: Iterable[Mapping[str, Any]],
     finally:
         for module, training in modes.items():
             module.training = training
+        restore_rng(previous_rng, device)
+        if loader_rng is not None:
+            generator.set_state(loader_rng)
     merged = {key: torch.cat(parts).numpy() if parts else np.empty(0)
               for key, parts in collected.items()}
     result = critic_diagnostics(merged["v"], merged["remaining_blocks"], merged["weights"],
@@ -208,4 +251,9 @@ def evaluate_critic(model: Any, batches: Iterable[Mapping[str, Any]],
         result[f"{key}_distribution"] = distribution(merged[key])
     result["beta"] = float(beta)
     result["max_weight"] = float(max_weight)
+    result["losses"] = {"count": loss_count,
+        **{key: total / loss_count if loss_count else None for key, total in loss_sums.items()},
+        "aggregation": "mean_per_transition_without_augmentation",
+        "q_target_definition": "reward + discount * bootstrap_mask * online_V(next_observation)",
+        "v_target_definition": "min(target_Q1, target_Q2)(observation, action)"}
     return result

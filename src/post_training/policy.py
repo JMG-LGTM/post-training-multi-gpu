@@ -64,7 +64,7 @@ class Pi05Policy(nn.Module):
     """DDP forward owns CPU transforms and returns differentiable [batch] losses."""
 
     def __init__(self, model: nn.Module, input_transform, identity: dict, settings: dict,
-                 normalization: dict, *, observation_factory=None):
+                 normalization: dict, *, observation_factory=None, vision_gradient_checkpointing=False):
         super().__init__()
         self.model = model
         self.input_transform = input_transform
@@ -79,6 +79,15 @@ class Pi05Policy(nn.Module):
         if settings["backbone"] == "frozen":
             model.paligemma_with_expert.paligemma.requires_grad_(False)
         model.gradient_checkpointing_enable()
+        if vision_gradient_checkpointing:
+            if settings["backbone"] != "full":
+                raise ValueError("Vision layer checkpointing requires full backbone training")
+            # OpenPI checkpoints the complete image embedding call and sets a
+            # top-level vision flag. HF 4.53 SigLIP checks flags on each layer;
+            # its public API recursively enables those finer-grained checkpoints.
+            vision = model.paligemma_with_expert.paligemma.vision_tower
+            vision.gradient_checkpointing_enable(gradient_checkpointing_kwargs={"use_reentrant": False})
+        self.vision_gradient_checkpointing = vision_gradient_checkpointing
         self.train()
 
     def train(self, mode: bool = True):
@@ -169,5 +178,6 @@ def load_policy(model_config: dict, device="cpu", dtype: str | None = None,
     inputs = transforms.compose([*data.data_transforms.inputs,
                                  transforms.Normalize(stats, use_quantiles=data.use_quantile_norm),
                                  *data.model_transforms.inputs])
-    policy = Pi05Policy(model, inputs, identity, settings, load_normalization(root, verify=False))
+    policy = Pi05Policy(model, inputs, identity, settings, load_normalization(root, verify=False),
+                       vision_gradient_checkpointing=model_config.get("vision_gradient_checkpointing", False))
     return policy.to(device)

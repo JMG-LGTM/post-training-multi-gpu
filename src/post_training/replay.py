@@ -70,12 +70,15 @@ def fit_normalization(data_root: Path, manifest: dict, info: dict) -> dict:
     action_values, state_values = [], []
     for run_id, rows in grouped.items():
         ep = by_id[run_id]
-        trajectory = load_npz_arrays(safe_path(data_root, ep["trajectory_path"]),
-            expected_sha256=manifest["files"][ep["trajectory_path"]]["sha256"])
-        state = np.concatenate([trajectory[key] for key in ("eef_position", "eef_axis_angle", "gripper_qpos")], axis=-1)
-        indices = sorted({step for row in rows for step in (row["start"], row["end"])})
+        official = ep.get("kind") == "official_bc"
+        path = ep["numeric_path"] if official else ep["trajectory_path"]
+        trajectory = load_npz_arrays(safe_path(data_root, path), expected_sha256=manifest["files"][path]["sha256"])
+        state = (trajectory["state"] if official else
+                 np.concatenate([trajectory[key] for key in ("eef_position", "eef_axis_angle", "gripper_qpos")], axis=-1))
+        indices = sorted({step for row in rows for step in ((row["start"],) if official else (row["start"], row["end"]))})
         state_values.append(state[indices])
-        action_values.extend(trajectory["env_action"][row["start"]:row["end"]] for row in rows)
+        actions = trajectory["actions"] if official else trajectory["env_action"]
+        action_values.extend(actions[row["start"]:row["end"]] for row in rows)
     if not action_values:
         raise ValueError("Training split is empty; cannot fit normalization")
     result = {}
@@ -162,6 +165,11 @@ def build_replay_cache(data_root: str | Path, cache_root: str | Path, config: di
         termination_rule=TERMINATION_RULE, reward=manifest["reward"],
         split_rows_sha256=stable_hash(info["rows"]),
         implementation={name: sha256_file(Path(__file__).with_name(name)) for name in ("replay.py", "data.py", "archive_io.py")})
+    mixed_bc = bool(manifest.get("bc_demonstrations"))
+    if mixed_bc:
+        identity.update(bc_demonstration_contract=manifest["bc_demonstration_contract"],
+                        observation_orientation_by_source={"native": "vertical_flip_only", "official_bc": "as_published_no_flip"})
+        identity["implementation"]["official_bc.py"] = sha256_file(Path(__file__).with_name("official_bc.py"))
     fingerprint = stable_hash(identity)
     cache_root.mkdir(parents=True, exist_ok=True)
     target = cache_root / fingerprint
@@ -178,26 +186,30 @@ def build_replay_cache(data_root: str | Path, cache_root: str | Path, config: di
         try:
             for index, row in enumerate(info["rows"]):
                 ep = by_id[row["run_id"]]
+                official = ep.get("kind") == "official_bc"
                 if loaded_id != ep["run_id"]:
                     trajectory, observations, proprio = None, None, None
-                    trajectory = load_npz_arrays(safe_path(data_root, ep["trajectory_path"]),
-                        expected_sha256=manifest["files"][ep["trajectory_path"]]["sha256"])
+                    numeric_path = ep["numeric_path"] if official else ep["trajectory_path"]
+                    trajectory = load_npz_arrays(safe_path(data_root, numeric_path),
+                        expected_sha256=manifest["files"][numeric_path]["sha256"])
                     observations = load_npz_arrays(safe_path(data_root, ep["observations_path"]),
-                        keys=("agentview_image", "wrist_image"),
+                        keys=("image" if official else "agentview_image", "wrist_image"),
                         expected_sha256=manifest["files"][ep["observations_path"]]["sha256"])
-                    proprio = np.concatenate([trajectory[key] for key in ("eef_position", "eef_axis_angle", "gripper_qpos")], axis=-1).astype(np.float32)
+                    proprio = (trajectory["state"] if official else
+                        np.concatenate([trajectory[key] for key in ("eef_position", "eef_axis_angle", "gripper_qpos")], axis=-1)).astype(np.float32)
                     loaded_id = ep["run_id"]
                 start, end = row["start"], row["end"]
                 length = end - start
-                agent = observations["agentview_image"][start, ::-1].copy()
-                wrist = observations["wrist_image"][start, ::-1].copy()
+                agent = (observations["image"][start] if official else observations["agentview_image"][start, ::-1]).copy()
+                wrist = (observations["wrist_image"][start] if official else observations["wrist_image"][start, ::-1]).copy()
                 raw_actions = np.zeros((horizon, 7), np.float32)
-                raw_actions[:length] = trajectory["env_action"][start:end]
+                raw_actions[:length] = trajectory["actions" if official else "env_action"][start:end]
                 action_mask = np.arange(horizon) < length
                 values = dict(raw_proprio=proprio[start], raw_actions=raw_actions,
-                    action_mask=action_mask, chunk_length=np.asarray(length, np.int64),
-                    remaining_blocks=np.asarray(row["remaining_blocks"], np.int64),
-                    success_terminal=np.asarray(row["success_terminal"], bool))
+                    action_mask=action_mask, chunk_length=np.asarray(length, np.int64))
+                if not mixed_bc:
+                    values.update(remaining_blocks=np.asarray(row["remaining_blocks"], np.int64),
+                                  success_terminal=np.asarray(row["success_terminal"], bool))
                 if policy:
                     values.update(agent_image=agent, wrist_image=wrist)
                 if transitions:
