@@ -224,7 +224,8 @@ def loader(model_config,device,*,verified_identity):
         platform_model_settings(model_config,identity),load_normalization(root),
         observation_factory=lambda v:v).to(device)
 policy.load_policy=loader
-observed={'steps':[],'forward_calls':0,'backward_calls':0}; inside={'step':False,'weights':None}
+observed={'steps':[],'forward_calls':0,'backward_calls':0,
+    'critic_training_forward_calls':0,'critic_validation_forward_calls':0}; inside={'step':False,'weights':None}
 original_forward=Pi05Policy.forward
 def actor_forward(self,batch):
     assert batch['actor_source']==['native']*31+['official_bc']
@@ -239,7 +240,12 @@ def actor_forward(self,batch):
 Pi05Policy.forward=actor_forward
 original_critic_forward=PixelIQL.forward
 def critic_forward(self,batch,*args,**kwargs):
-    assert batch['pixels'].shape[0]==32
+    if inside['step']:
+        assert batch['pixels'].shape[0]==32
+        observed['critic_training_forward_calls']+=1
+    else:
+        assert not torch.is_grad_enabled() and not self.training
+        observed['critic_validation_forward_calls']+=1
     return original_critic_forward(self,batch,*args,**kwargs)
 PixelIQL.forward=critic_forward
 original_scores=PixelIQL.scores
@@ -301,6 +307,9 @@ def test_two_real_gloo_ranks_actor64_critic64_one_backward_and_exact_2_to4_resum
     for rank in range(2):
         assert full[rank]["steps"] == paused[rank]["steps"]+resumed[rank]["steps"]
         assert full[rank]["forward_calls"] == full[rank]["backward_calls"] == 4
+        assert full[rank]["critic_training_forward_calls"] == 8
+    assert full[0]["critic_validation_forward_calls"] > 0
+    assert full[1]["critic_validation_forward_calls"] == 0
     expected_path, actual_path = full_dir/'checkpoints/update_00000004.pt',resume_dir/'checkpoints/update_00000004.pt'
     expected, actual = load_snapshot(expected_path), load_snapshot(actual_path)
     _assert_identical_state(expected['actor'],actual['actor'])

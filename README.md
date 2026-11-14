@@ -1,5 +1,7 @@
 # pi0.5 post-training on 1–8 GPUs
 
+**分支定位：** `review/bc-iql-updates-20261114` 整理初版 `main` 之后的 BC、IQL 和共用训练改进；入口仍是 `train.py`。`review/official-idql-twinq-20261114` 以此为共享基座，单独审阅官方 IDQL 差异；`archive/custom-preference-critic-20261114` 保留旧 preference critic 历史。详见[中文变更与验证说明](docs/BC_IQL_REVIEW_20261114.md)。这里的 IQL 使用项目原有 PyTorch twin-Q/V。
+
 Standalone BC, IQL and Q/V-only training for 1–8 GPUs, with configurations
 targeting one 8 × H20 96 GB server. All commands are noninteractive. Portable
 dataset packages let training run independently of the data collection platform.
